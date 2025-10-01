@@ -1,0 +1,112 @@
+// @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+// Changed by Akashdeep Singh
+
+:root {
+  --bg-light: #ffffff;
+  --theme-color: #035da2;
+  --icon-active: #eceff1;
+  --sidebar-bg: #2c3e50;
+  --sidebar-text: #b0c4de;
+  --dark: #000;
+}
+
+.myFont {
+  font-family: monospace !important;
+  font-size: 16px;
+}
+
+.headingThemeColor {
+  color: var(--theme-color);
+}
+.headingColor {
+  color: var(--bg-light);
+  margin:0px !important;
+  // color: var(--theme-color);
+}
+
+// .boottomBorder {
+//   // border-bottom: 1px solid var(--dark);
+// }
+
+// .table thead th {
+//   // background-color: var(--theme-color);
+//   // color: var(--bg-light);
+// }
+
+.table-head {
+  background-color: var(--theme-color);
+  color: var(--bg-light);
+}
+
+.custom-table {
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+  /* Adjust shadow */
+  border-radius: 8px;
+  /* Optional: Rounds corners */
+  overflow: hidden;
+  /* Ensures no shadow overflow */
+}
+
+.custom-modal-width {
+  max-width: 80% !important;
+}
+/* Hide arrows for Chrome, Safari, Edge, Opera */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide arrows for Firefox */
+input[type="number"] {
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  appearance: none;
+}
+
+.section-header {
+    background: var(--theme-color);
+    border-radius: 5px;
+    padding: 0px 8px;
+    // color: blue !important;
+}
+
+.section-content {
+  margin-top: 10px;
+  background: #f8fafc; // subtle light background
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(3, 93, 162, 0.10), 0 1.5px 4px rgba(0,0,0,0.06);
+  padding: 18px 20px;
+  border: 1px solid #e3e8ee;
+  transition: box-shadow 0.2s;
+}
+
+.section-content:hover {
+  box-shadow: 0 4px 24px rgba(3, 93, 162, 0.18), 0 3px 8px rgba(0,0,0,0.10);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: var(--dark) !important;
+  background-color: #f5f5f5; // Optional: subtle background for disabled
+  opacity: 1; 
+}
+
+/* Make Ant Design DatePicker border and text dark black */
+.ant-picker,
+.ant-picker-input > input {
+  border-color: #000 !important;
+  color: #000 !important;
+}
+
+.ant-picker-focused,
+.ant-picker:hover {
+  border-color: #000 !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.ant-picker-input > input::placeholder {
+  color: #000 !important;
+  opacity: 0.7;
+}

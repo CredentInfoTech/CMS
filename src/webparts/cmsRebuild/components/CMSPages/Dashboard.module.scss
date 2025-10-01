@@ -1,0 +1,48 @@
+.bordered-cell {
+  border: 2px solid black !important;
+  border-radius: 4px;
+}
+
+/* Hide arrows for Chrome, Safari, Edge, Opera */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide arrows for Firefox */
+input[type="number"] {
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  appearance: none;
+}
+
+// .MuiDataGrid-root .MuiDataGrid-cell:first-of-type,
+// .MuiDataGrid-root .MuiDataGrid-columnHeader:first-of-type {
+//   position: sticky;
+//   left: 0;
+//   background: #fff;
+//   z-index: 2;
+// }
+
+// .MuiDataGrid-root [data-field="contractNo"],
+// .MuiDataGrid-root .MuiDataGrid-cell[data-field="contractNo"] {
+//   position: sticky !important;
+//   left: 0 !important;
+//   background: #fff !important;
+//   z-index: 2 !important;
+// }
+
+// .contractNoCell {
+//   position: sticky !important;
+//   left: 0 !important;
+//   background: #fff !important;
+//   z-index: 2 !important;
+// }
+
+// .contractNoHeader {
+//   position: sticky !important;
+//   left: 0 !important;
+//   background: #fff !important;
+//   z-index: 3 !important;
+// }

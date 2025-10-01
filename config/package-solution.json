@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "cms-client-side-solution",
+    "id": "a91b099d-6325-4812-b492-c1ad0e9f8ef8",
+    "version": "1.0.0.16",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.20.0"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "cms description"
+      },
+      "longDescription": {
+        "default": "cms description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "cms Feature",
+        "description": "The feature that activates elements of the cms solution.",
+        "id": "2a161545-60ef-49d2-bca6-1206d1f80061",
+        "version": "1.0.0.16"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/cms.sppkg"
+  }
+}

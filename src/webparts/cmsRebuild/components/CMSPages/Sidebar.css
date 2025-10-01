@@ -1,0 +1,99 @@
+/* Responsive Topbar Styles */
+.menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.menu-list li {
+    /* padding: 0.7rem 1.2rem; */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    /* font-size: 1.08rem; */
+    font-weight: 400;
+    background: none;
+    color: #fff;
+    border: none;
+    border-bottom: 3px solid transparent;
+    transition: background 0.2s, color 0.2s, font-size 0.3s, border-bottom 0.2s;
+}
+
+.menu-list li.active {
+    color: #fff;
+    font-weight: bold;
+    border-bottom: 3px solid #ffb300;
+    /* Professional accent color */
+    /* background: rgba(255,255,255,0.10); */
+}
+
+.menu-icon {
+    margin-right: 10px;
+    /* font-size: 1.35em; */
+    /* min-width: 28px;
+    min-height: 28px; */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: font-size 0.3s, color 0.2s;
+    color: #fff;
+}
+
+.menu-label {
+    /* font-size: 1.08rem; */
+    letter-spacing: 0.5px;
+    font-weight: 500;
+    color: #fff;
+    display: inline-block;
+    vertical-align: middle;
+    transition: font-size 0.3s, color 0.2s;
+}
+
+.menu-list li:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    border-radius: 5px;
+    border-bottom: 3px solid #ffb300;
+    /* Professional accent color */
+
+}
+
+/* Remove sidebar/collapse styles for topbar layout */
+.sidebar,
+.sidebar.collapsed,
+.toggle-btn,
+.sidebar.collapsed .menu-icon,
+.sidebar.collapsed .menu-list span,
+.sidebar.collapsed .menu-label,
+.sidebar.collapsed .logo-container img,
+.sidebar.collapsed .compName,
+.sidebar.collapsed .menu-list span:not(.menu-icon) {
+    display: none !important;
+}
+
+.content {
+    flex-grow: 1;
+    transition: margin-left 0.3s ease, width 0.3s ease;
+    min-height: 100vh;
+    width: 100vw;
+    margin-left: 0;
+    background: #fff;
+    height: 400px;
+    overflow-y: auto;
+    font-size: 1rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.content::-webkit-scrollbar {
+    display: none;
+}
+
+.CanvasZoneSectionContainer {
+    max-width: 100% !important;
+}

@@ -1,0 +1,68 @@
+:root {
+  --font-family: "Public Sans Variable", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  // background-color: #FCFCFC;
+}
+.row {
+  width: 100% !important;
+}
+.myFont {
+  font-family: monospace !important;
+}
+
+.CanvasZoneSectionContainer {
+  max-width: 100% !important;
+}
+
+
+:global {
+  #workbenchPageContent,
+  .CanvasComponent.LCS .CanvasZone {
+    max-width: 100% !important;
+  }
+
+  .applyCustomStyles {
+    #SuiteNavPlaceholder {
+      display: none !important;
+    }
+
+    #spAppAndPropertyPanelContainer {
+      padding-bottom: 0 !important;
+    }
+
+    .sp-appBar {
+      display: none !important;
+    }
+
+    #spSiteHeader {
+      display: none !important;
+    }
+
+    #spLeftNav {
+      display: none !important;
+    }
+
+    #spCommandBar {
+      display: none !important;
+    }
+
+    .ms-CommandBar,
+    div[role="menubar"],
+    div[data-automationid="CommandBar"] {
+      display: none !important;
+    }
+    .ms-HubNav,
+    .ms-HubNav-enhancedMegaMenu,
+    .hubNavRow-104,
+    .sp-App-hubNav-2 {
+      display: none !important;
+    }
+  }
+}
