@@ -15,7 +15,10 @@ import { Modal, Button } from "react-bootstrap"; // Import Bootstrap Modal
 import FinaceInvoiceSection from "./FinaceInvoiceSection";
 import * as moment from "moment";
 import { DatePicker } from "antd";
-import { getDocumentLibraryDataWithSelect, handleDownload } from "../services/SharePointService";
+import {
+  getDocumentLibraryDataWithSelect,
+  handleDownload,
+} from "../services/SharePointService";
 import {
   faPlus,
   faTrash,
@@ -98,33 +101,35 @@ export default function RequesterInvoiceSection({
 }) {
   const InvoiceList = "CMSRequestDetails";
   const InvoiceHistory = "CMSPaymentHistory";
-console.log(siteUrl, "siteUrlinvoice123");
-console.log(props, "propsinvoice123");
+  console.log(siteUrl, "siteUrlinvoice123");
+  console.log(props, "propsinvoice123");
   const [showEditModal, setShowEditModal] = React.useState(false); // State to control modal visibility
   const [selectedRow, setSelectedRow] = React.useState<InvoiceRow | null>(null); // State to store selected row data
   const [invoiceHistoryData, setInvoiceHistoryData] = React.useState<any[]>([]);
   const [showHistoryModal, setShowHistoryModal] = React.useState(false);
   const [historyLoading, setHistoryLoading] = React.useState(false);
   const [invoiceDocuments, setInvoiceDocuments] = React.useState<any[]>([]);
-  const [selectedRows, setSelectedRows] = React.useState<number[]>([]);
+  // const [selectedRows, setSelectedRows] = React.useState<number[]>([]);
 
-const allSelected = invoiceRows.length > 0 && selectedRows.length === invoiceRows.length;
+  // const allSelected =
+  //   invoiceRows.length > 0 && selectedRows.length === invoiceRows.length;
 
-const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (e.target.checked) {
-    setSelectedRows(invoiceRows.map(row => row.id));
-  } else {
-    setSelectedRows([]);
-  }
-};
+  // const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   if (e.target.checked) {
+  //     setSelectedRows(invoiceRows.map((row) => row.id));
+  //   } else {
+  //     setSelectedRows([]);
+  //   }
+  // };
 
-const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (e.target.checked) {
-    setSelectedRows(prev => [...prev, id]);
-  } else {
-    setSelectedRows(prev => prev.filter(rowId => rowId !== id));
-  }
-};
+  // const handleSelectRow =
+  //   (id: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  //     if (e.target.checked) {
+  //       setSelectedRows((prev) => [...prev, id]);
+  //     } else {
+  //       setSelectedRows((prev) => prev.filter((rowId) => rowId !== id));
+  //     }
+  //   };
   // ...existing imports...
   // Adjust path if needed
   console.log(userGroups, "userGroupsinvoice12");
@@ -340,8 +345,9 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
 
       {/* Responsive Table */}
       <div
-        className={`${isCollapsed ? "collapse show" : "collapse"
-          } section-content`}
+        className={`${
+          isCollapsed ? "collapse show" : "collapse"
+        } section-content`}
         id="poDetailsCollapse"
       >
         {/* <div className="table-responsive">
@@ -586,7 +592,6 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
           </table>
         </div> */}
 
-
         <style>{`
           .table-scroll-wrapper {
             overflow-x: auto;
@@ -606,16 +611,19 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
           }
         `}</style>
         <div className="table-scroll-wrapper">
-          <table className="table table-bordered align-middle" style={{ minWidth: '1200px' }}>
+          <table
+            className="table table-bordered align-middle"
+            style={{ minWidth: "1200px" }}
+          >
             <thead className="table-light">
               <tr>
                 <th className="fixed-th fixed-serial">S.No</th>
-                <th className="fixed-th "><input
+                {/* <th className="fixed-th "><input
                   type="checkbox"
                   style={{ marginLeft: 8 }}
                   checked={allSelected}
                   onChange={handleSelectAll}
-                /></th>
+                /></th> */}
 
                 <th className="fixed-th">Invoice Description</th>
                 <th className="fixed-th">Remaining PO Amount</th>
@@ -628,9 +636,9 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                 {invoiceRows.some((row) => row.showProceed) && (
                   <th className="fixed-th">Invoice Proceed Date</th>
                 )}
-                {invoiceRows.some((row) => row.InvoiceStatus === "Generated") && (
-                  <th className="">Invoice Attachment</th>
-                )}
+                {invoiceRows.some(
+                  (row) => row.InvoiceStatus === "Generated"
+                ) && <th className="">Invoice Attachment</th>}
                 <th className="fixed-th">Action</th>
               </tr>
             </thead>
@@ -648,18 +656,26 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                 .map((row, index) => (
                   <tr key={row.id}>
                     <td className="fixed-column fixed-serial">{index + 1}</td>
-                    <td className="fixed-column "> <input
+                    {/* <td className="fixed-column "> <input
             type="checkbox"
             style={{ marginLeft: 8 }}
             checked={selectedRows.includes(row.id)}
             onChange={handleSelectRow(row.id)}
-          /></td>
+          /></td> */}
                     <td className="fixed-column">
                       <textarea
-                        className={`form-control ${errors[`InvoiceDescription_${index}`] ? "is-invalid" : ""}`}
+                        className={`form-control ${
+                          errors[`InvoiceDescription_${index}`]
+                            ? "is-invalid"
+                            : ""
+                        }`}
                         value={row.InvoiceDescription}
                         onChange={(e) =>
-                          handleTextFieldChange(index, "InvoiceDescription", e.target.value)
+                          handleTextFieldChange(
+                            index,
+                            "InvoiceDescription",
+                            e.target.value
+                          )
                         }
                         disabled={isEditMode}
                       />
@@ -674,7 +690,9 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                         type="text"
                         className="form-control"
                         value={
-                          index === 0 ? totalPoAmount.toFixed(2) : row.RemainingPoAmount
+                          index === 0
+                            ? totalPoAmount.toFixed(2)
+                            : row.RemainingPoAmount
                         }
                         disabled
                       />
@@ -682,7 +700,9 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                     <td className="fixed-column">
                       <input
                         type="number"
-                        className={`form-control ${errors[`InvoiceAmount_${index}`] ? "is-invalid" : ""}`}
+                        className={`form-control ${
+                          errors[`InvoiceAmount_${index}`] ? "is-invalid" : ""
+                        }`}
                         value={row.InvoiceAmount}
                         min={0}
                         step="any"
@@ -702,10 +722,14 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                     <td className="fixed-column">
                       <DatePicker
                         type="date"
-                        className={`form-control ${errors[`InvoiceDueDate_${index}`] ? "is-invalid" : ""}`}
+                        className={`form-control ${
+                          errors[`InvoiceDueDate_${index}`] ? "is-invalid" : ""
+                        }`}
                         format="DD-MM-YYYY"
                         value={
-                          row.InvoiceDueDate ? moment(row.InvoiceDueDate, "DD-MM-YYYY") : null
+                          row.InvoiceDueDate
+                            ? moment(row.InvoiceDueDate, "DD-MM-YYYY")
+                            : null
                         }
                         onChange={(date) =>
                           handleTextFieldChange(
@@ -714,7 +738,9 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                             date ? date.format("DD-MM-YYYY") : ""
                           )
                         }
-                        disabledDate={(current) => current && current < moment().startOf("day")}
+                        disabledDate={(current) =>
+                          current && current < moment().startOf("day")
+                        }
                         disabled={isEditMode}
                       />
                       {errors[`InvoiceDueDate_${index}`] && (
@@ -729,7 +755,8 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                           type="date"
                           format="DD-MM-YYYY"
                           value={
-                            !row.InvoiceProceedDate || row.InvoiceProceedDate === "01/01/1970"
+                            !row.InvoiceProceedDate ||
+                            row.InvoiceProceedDate === "01/01/1970"
                               ? moment()
                               : moment(row.InvoiceProceedDate, "DD-MM-YYYY")
                           }
@@ -745,7 +772,9 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                         />
                       </td>
                     )}
-                    {invoiceRows.some((r) => r.InvoiceStatus === "Generated") && (
+                    {invoiceRows.some(
+                      (r) => r.InvoiceStatus === "Generated"
+                    ) && (
                       <td className="">
                         {row.InvoiceStatus === "Generated" ? (
                           row.InvoiceFileID ? (
@@ -757,7 +786,11 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                                 <button
                                   type="button"
                                   className="btn btn-link"
-                                  onClick={(e) => handleDownload(e, file.EncodedAbsUrl, { context })}
+                                  onClick={(e) =>
+                                    handleDownload(e, file.EncodedAbsUrl, {
+                                      context,
+                                    })
+                                  }
                                 >
                                   {file.FileLeafRef}
                                 </button>
@@ -791,18 +824,20 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
                             className="btn btn-secondary me-2"
                             onClick={(e) => handleHistoryClick(e, row)}
                           >
-                            <FontAwesomeIcon icon={faClockRotateLeft} title="Invoice History" />
+                            <FontAwesomeIcon
+                              icon={faClockRotateLeft}
+                              title="Invoice History"
+                            />
                           </button>
                         </>
                       )}
-                      {isEditMode && row.employeeEmail === currentUserEmail && row.InvoiceStatus === "Proceed Approval" && (
-                        <button
-                          className="btn btn-success"
-                          type="button"
-                        >
-                          Proceed approval pending
-                        </button>
-                      )}
+                      {isEditMode &&
+                        row.employeeEmail === currentUserEmail &&
+                        row.InvoiceStatus === "Proceed Approval" && (
+                          <button className="btn btn-success" type="button">
+                            Proceed approval pending
+                          </button>
+                        )}
                       {!isEditMode && (
                         <button
                           className="btn btn-danger"
@@ -820,7 +855,6 @@ const handleSelectRow = (id: number) => (e: React.ChangeEvent<HTMLInputElement>)
             </tbody>
           </table>
         </div>
-
       </div>
       {/* </div> */}
 

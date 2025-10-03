@@ -115,7 +115,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
   const siteUrl = props.context.pageContext.web.absoluteUrl;
   console.log(siteUrl, "siteUrl====");
   console.log(props, "props-------------");
-  
+
   const [userGroups, setUserGroups] = useState<string[]>([]);
   const currentUserEmail = props.context.pageContext.user.email; // Store current user email
   const InvoicelistName = "CMSRequestDetails";
@@ -258,11 +258,10 @@ const Dashboard = (props: ICmsRebuildProps) => {
   // };
 
   const twoDecimalFormatter = (params: { value: number }) =>
-  params.value !== undefined && params.value !== null
-    ? Number(params.value).toFixed(2)
-    : "";
+    params.value !== undefined && params.value !== null
+      ? Number(params.value).toFixed(2)
+      : "";
 
-    
   const columns: GridColDef[] = [
     {
       field: "contractNo",
@@ -506,7 +505,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
           InvoiceTaxAmount: Number(row.taxInvoiceAmount),
           // InvoiceFileID: row.docID,
           InvoiceFileID: generatedUID,
-          TotalPendingAmount: Number(row.taxInvoiceAmount)
+          TotalPendingAmount: Number(row.taxInvoiceAmount),
         };
 
         // console.log("updatedata", updatedata);
@@ -570,7 +569,9 @@ const Dashboard = (props: ICmsRebuildProps) => {
       const InvoicePendingAmount = Number(
         (Number(TaxAmount) - Number(InvoiceRecievedAmount)).toFixed(2)
       );
-      if (InvoiceRecievedAmount.toFixed(2) > TaxAmount.toFixed(2)) {
+      if (
+        Number(InvoiceRecievedAmount.toFixed(2)) > Number(TaxAmount.toFixed(2))
+      ) {
         setIsLoading(false);
         alert(
           "Payment Value cannot be greater than the pending amount for this invoice."
@@ -799,7 +800,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
               e.preventDefault(); // block minus, plus
             }
           }}
-
           onChange={(e) => {
             const value = e.target.value;
 
@@ -808,17 +808,11 @@ const Dashboard = (props: ICmsRebuildProps) => {
               return;
             }
 
-            
             if (parseFloat(value) > 0) {
-              params.api.updateRows([
-                { ...params.row, paymentValue: value },
-              ]);
+              params.api.updateRows([{ ...params.row, paymentValue: value }]);
             } else {
               alert("Payment Value must be greater than 0.");
             }
-          
-
-            
 
             // // if (parseFloat(value) > 0) {
             // // params.api.updateRows([{ ...params.row, paymentValue: value }]);
@@ -834,7 +828,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
 
             // // valid number >= 1
             // params.api.updateRows([{ ...params.row, paymentValue: num }]);
-            
 
             // // }
           }}
@@ -1580,7 +1573,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
           type="number"
           sx={{ mt: 0.625 }} // 5px margin top
           value={params.row.taxInvoiceAmount || ""}
-
           disabled={!rowFiles[params.row.id]}
           onChange={(e) => {
             const value = e.target.value;
@@ -2292,7 +2284,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
     : 0;
 
   return (
-    <Box sx={{ minHeight: "100vh", }}>
+    <Box sx={{ minHeight: "100vh" }}>
       {isLoading && <LoaderOverlay />}
 
       {!selectedRowId ? (
@@ -2805,9 +2797,8 @@ const Dashboard = (props: ICmsRebuildProps) => {
               }}
               paginationModel={paginationModel}
               onPaginationModelChange={setPaginationModel}
-              pageSizeOptions={[5, 10, 15, 20]}   // 👈 Add this
-              pagination             // 👈 Ensure pagination is enabled
-
+              pageSizeOptions={[5, 10, 15, 20]} // 👈 Add this
+              pagination // 👈 Ensure pagination is enabled
               slots={{ toolbar: GridToolbar }}
               sx={{
                 "& .MuiDataGrid-columnHeaders": {
@@ -2839,8 +2830,8 @@ const Dashboard = (props: ICmsRebuildProps) => {
                   zIndex: 3,
                 },
                 "& .MuiDataGrid-footerContainer": {
-                  justifyContent: "flex-end"  // 👈 pushes the whole footer content (dropdown, text, arrows) to the right
-                }
+                  justifyContent: "flex-end", // 👈 pushes the whole footer content (dropdown, text, arrows) to the right
+                },
               }}
               processRowUpdate={handleRowUpdate}
               isCellEditable={isCellEditable}
