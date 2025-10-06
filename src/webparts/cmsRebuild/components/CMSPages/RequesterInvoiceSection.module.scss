@@ -26,19 +26,19 @@
     background-color: #005a9e;
 }
 
-.custom-modal-width {
+.custommodalwidth {
     max-width: 80%; // Set the desired width
 }
 
 
-.section-header {
+.sectionheader {
     background: var(--theme-color);
     border-radius: 5px;
     padding: 0px 8px;
     // color: blue !important;
 }
 
-.section-content {
+.sectioncontent {
   margin-top: 10px;
   background: #f8fafc; // subtle light background
   border-radius: 8px;
@@ -48,20 +48,20 @@
   transition: box-shadow 0.2s;
 }
 
-.section-content:hover {
+.sectioncontent:hover {
   box-shadow: 0 4px 24px rgba(3, 93, 162, 0.18), 0 3px 8px rgba(0,0,0,0.10);
 }
-.fixed-column {
+.fixedcolumn {
   min-width: 200px !important;
   max-width: 200px !important;
   width: 200px !important;
   white-space: normal; /* or nowrap if you don't want text wrap */
   word-break: break-word;
 }
-.table-scroll-wrapper {
+.tablescrollwrapper {
   overflow-x: auto;
   width: 100%;
 }
-.fixed-input {
+.fixedinput {
   width: 180px !important; /* Slightly smaller than td to avoid overflow */
 }

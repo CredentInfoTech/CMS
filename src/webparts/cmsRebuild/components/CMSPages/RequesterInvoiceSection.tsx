@@ -298,7 +298,7 @@ export default function RequesterInvoiceSection({
   }, [proceedButtonCount, onProceedButtonCountChange]);
   return (
     <div className="mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-3 section-header">
+      <div className="d-flex justify-content-between align-items-center mb-3 sectionheader">
         <div className="d-flex align-items-center justify-content-between">
           <h5
             className="fw-bold mt-2 me-2 headingColor"
@@ -347,7 +347,7 @@ export default function RequesterInvoiceSection({
       <div
         className={`${
           isCollapsed ? "collapse show" : "collapse"
-        } section-content`}
+        } sectioncontent`}
         id="poDetailsCollapse"
       >
         {/* <div className="table-responsive">
@@ -593,11 +593,11 @@ export default function RequesterInvoiceSection({
         </div> */}
 
         <style>{`
-          .table-scroll-wrapper {
+          .tablescrollwrapper {
             overflow-x: auto;
             width: 100%;
           }
-          .fixed-column, .fixed-th {
+          .fixedcolumn, .fixed-th {
             min-width: 180px;
             max-width: 220px;
             width: 200px;
@@ -610,7 +610,7 @@ export default function RequesterInvoiceSection({
             white-space: nowrap;
           }
         `}</style>
-        <div className="table-scroll-wrapper">
+        <div className="tablescrollwrapper">
           <table
             className="table table-bordered align-middle"
             style={{ minWidth: "1200px" }}
@@ -655,14 +655,14 @@ export default function RequesterInvoiceSection({
                 // .map((row, index) => (
                 .map((row, index) => (
                   <tr key={row.id}>
-                    <td className="fixed-column fixed-serial">{index + 1}</td>
-                    {/* <td className="fixed-column "> <input
+                    <td className="fixedcolumn fixed-serial">{index + 1}</td>
+                    {/* <td className="fixedcolumn "> <input
             type="checkbox"
             style={{ marginLeft: 8 }}
             checked={selectedRows.includes(row.id)}
             onChange={handleSelectRow(row.id)}
           /></td> */}
-                    <td className="fixed-column">
+                    <td className="fixedcolumn">
                       <textarea
                         className={`form-control ${
                           errors[`InvoiceDescription_${index}`]
@@ -685,7 +685,7 @@ export default function RequesterInvoiceSection({
                         </div>
                       )}
                     </td>
-                    <td className="fixed-column">
+                    <td className="fixedcolumn">
                       <input
                         type="text"
                         className="form-control"
@@ -697,7 +697,7 @@ export default function RequesterInvoiceSection({
                         disabled
                       />
                     </td>
-                    <td className="fixed-column">
+                    <td className="fixedcolumn">
                       <input
                         type="number"
                         className={`form-control ${
@@ -719,7 +719,7 @@ export default function RequesterInvoiceSection({
                         </div>
                       )}
                     </td>
-                    <td className="fixed-column">
+                    <td className="fixedcolumn">
                       <DatePicker
                         type="date"
                         className={`form-control ${
@@ -750,7 +750,7 @@ export default function RequesterInvoiceSection({
                       )}
                     </td>
                     {row.showProceed && (
-                      <td className="fixed-column">
+                      <td className="fixedcolumn">
                         <DatePicker
                           type="date"
                           format="DD-MM-YYYY"
@@ -806,7 +806,7 @@ export default function RequesterInvoiceSection({
                         )}
                       </td>
                     )}
-                    <td className="fixed-column">
+                    <td className="fixedcolumn">
                       {isEditMode && row.showProceed && (
                         <>
                           {row.InvoiceStatus === "Started" &&
@@ -863,7 +863,7 @@ export default function RequesterInvoiceSection({
         show={showEditModal}
         onHide={handleCloseModal}
         centered
-        dialogClassName="custom-modal-width" // Add custom class for width
+        dialogClassName="custommodalwidth" // Add custom class for width
       >
         <Modal.Header closeButton>
           <Modal.Title>Edit Invoice</Modal.Title>

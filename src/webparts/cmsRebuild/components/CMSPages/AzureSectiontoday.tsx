@@ -1503,7 +1503,7 @@ export default function AzureSection(
       {isLoading && <LoaderOverlay />}
 
       <div className="mt-4">
-        <div className="d-flex align-items-center justify-content-between section-header">
+        <div className="d-flex align-items-center justify-content-between sectionheader">
           <div
             onClick={(e) => {
               e.preventDefault();
@@ -1545,7 +1545,7 @@ export default function AzureSection(
         <div
           className={`${
             isCollapsed ? "collapse show" : "collapse"
-          } section-content`}
+          } sectioncontent`}
           id="azureDetailsCollapse"
         >
           {" "}

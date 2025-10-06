@@ -3207,7 +3207,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
 
           <div>
             <div
-              className="d-flex align-items-center justify-content-between section-header"
+              className="d-flex align-items-center justify-content-between sectionheader"
               onClick={() => setShowClientWorkDetail((prev) => !prev)}
               aria-expanded={showClientWorkDetail}
               aria-controls="clientWorkDetailCollapse"
@@ -3244,8 +3244,8 @@ const RequestForm = (props: ICmsRebuildProps) => {
             <div
               className={`${
                 showClientWorkDetail ? "collapse show" : "collapse"
-              } section-content`}
-              // className={`$collapse show section-content`}
+              } sectioncontent`}
+              // className={`$collapse show sectioncontent`}
               // id="clientWorkDetailCollapse"
             >
               {" "}
@@ -3591,7 +3591,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
 
           <div className="mt-4">
             <div
-              className="d-flex align-items-center justify-content-between section-header"
+              className="d-flex align-items-center justify-content-between sectionheader"
               onClick={() => setShowPODetails((prev) => !prev)}
               aria-expanded={showPODetails}
               aria-controls="poDetailsCollapse"
@@ -3627,7 +3627,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
             <div
               className={`${
                 showPODetails ? "collapse show" : "collapse"
-              } section-content`}
+              } sectioncontent`}
               id="poDetailsCollapse"
             >
               <div className="row">
@@ -4332,7 +4332,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
 
           <div className="mt-4">
             <div
-              className="d-flex align-items-center justify-content-between section-header"
+              className="d-flex align-items-center justify-content-between sectionheader"
               onClick={() => setShowOtherAttachments((prev) => !prev)}
               aria-expanded={showOtherAttachments}
               aria-controls="otherAttachmentsCollapse"
@@ -4366,7 +4366,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
             <div
               className={`${
                 showOtherAttachments ? "collapse show" : "collapse"
-              } section-content`}
+              } sectioncontent`}
               id="otherAttachmentsCollapse"
             >
               {requestClosed !== "Yes" && !isUserInAdminM ? (
@@ -4533,7 +4533,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
             <div className="mt-4">
               <div className="mt-4">
                 <div
-                  className="d-flex align-items-center justify-content-between section-header"
+                  className="d-flex align-items-center justify-content-between sectionheader"
                   onClick={() => setShowBGDetails((prev) => !prev)}
                   aria-expanded={showBGDetails}
                   aria-controls="bgDetailsCollapse"
@@ -4567,7 +4567,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                 <div
                   className={`${
                     showBGDetails ? "collapse show" : "collapse"
-                  } section-content`}
+                  } sectioncontent`}
                   id="bgDetailsCollapse"
                 >
                   {/* BG Details Section - Only show BG End Date and Upload if NOT admin */}
@@ -4744,7 +4744,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                 show={showEditBGModal}
                 onHide={handleCloseBGModal}
                 centered
-                dialogClassName="custom-modal-width"
+                dialogClassName="custommodalwidth"
               >
                 <Modal.Header closeButton>
                   <Modal.Title>Edit BG Details</Modal.Title>

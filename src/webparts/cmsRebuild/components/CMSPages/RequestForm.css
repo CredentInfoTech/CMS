@@ -38,7 +38,7 @@
   /* Ensures no shadow overflow */
 }
 
-.custom-modal-width {
+.custommodalwidth {
   max-width: 80% !important;
 }
 /* Hide arrows for Chrome, Safari, Edge, Opera */
@@ -55,13 +55,13 @@ input[type="number"] {
   appearance: none;
 }
 
-.section-header {
+.sectionheader {
     background: var(--theme-color);
     border-radius: 5px;
     padding: 0px 8px;
 }
 
-.section-content {
+.sectioncontent {
   margin-top: 10px;
   background: #f8fafc;
   border-radius: 8px;
@@ -71,7 +71,7 @@ input[type="number"] {
   transition: box-shadow 0.2s;
 }
 
-.section-content:hover {
+.sectioncontent:hover {
   box-shadow: 0 4px 24px rgba(3, 93, 162, 0.18), 0 3px 8px rgba(0,0,0,0.10);
 }
 
