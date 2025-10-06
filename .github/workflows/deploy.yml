@@ -9,28 +9,36 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout
         uses: actions/checkout@v3.5.3
 
+      # 2️⃣ Setup Node.js
       - name: Use Node.js
         uses: actions/setup-node@v3.7.0
         with:
           node-version: 20.x
 
+      # 3️⃣ Install dependencies
       - name: Run npm ci
         run: npm ci
 
+      # 4️⃣ Bundle & Package SPFx solution
       - name: Bundle & Package
         run: |
+          gulp clean
           gulp bundle --ship
           gulp package-solution --ship
 
+      # 5️⃣ Debug - verify .sppkg file exists
       - name: Debug File Path
         run: ls -R sharepoint/solution
 
+      # 6️⃣ Login to Microsoft 365 using Service Principal
       - name: CLI for Microsoft 365 Login
-        uses: pnp/action-cli-login@v2.2.4
+        uses: pnp/action-cli-login@v3
         with:
           CERTIFICATE_ENCODED: ${{ secrets.CERTIFICATE_ENCODED }}
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
@@ -41,12 +49,17 @@ jobs:
           M365_CLIENT_SECRET: ${{ secrets.CERTIFICATE_PASSWORD }}
           M365_TENANT_ID: ${{ secrets.TENANT_ID }}
 
+      # 7️⃣ Optional debug to verify login
+      - name: Verify M365 Login
+        run: m365 spo status
+
+      # 8️⃣ Deploy SPFx package to Site Collection App Catalog
       - name: Deploy App to DEV Site Collection App Catalog
         id: devDeploy
         uses: pnp/action-cli-deploy@v4.0.0
         with:
           APP_FILE_PATH: sharepoint/solution/cms.sppkg
-          SKIP_FEATURE_DEPLOYMENT: true
           OVERWRITE: true
           SCOPE: sitecollection
           SITE_COLLECTION_URL: https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev
+          SKIP_FEATURE_DEPLOYMENT: true
