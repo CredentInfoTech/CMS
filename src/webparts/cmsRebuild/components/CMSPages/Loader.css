@@ -21,6 +21,9 @@
     font-weight: bold;
     color: #3498db;
 }
+.loader-gif{
+    height: 150px;
+}
 
 @keyframes spin {
     0% {

@@ -1,6 +1,7 @@
 {
   "extends": "./node_modules/@microsoft/rush-stack-compiler-4.7/includes/tsconfig-web.json",
   "compilerOptions": {
+    "baseUrl": "src",
     "target": "es5",
     "module": "esnext",
     "lib": [
@@ -22,19 +23,12 @@
     "noImplicitAny": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "lib",
-    "typeRoots": [
-      "./node_modules/@types",
-      "./node_modules/@microsoft"
-    ],
+    "typeRoots": ["./node_modules/@types", "./node_modules/@microsoft"],
     "types": [
       "webpack-env",
       "@fortawesome/fontawesome-svg-core",
       "@fortawesome/react-fontawesome"
-
     ]
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
