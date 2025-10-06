@@ -1,7 +1,7 @@
 /*eslint-disable @typescript-eslint/explicit-function-return-type*/
 
 import * as React from "react";
-import "./Loader.scss"; // Ensure you create and import this CSS file
+import "./Loader.css"; // Ensure you create and import this CSS file
 
 const CISLoader = () => {
   return (

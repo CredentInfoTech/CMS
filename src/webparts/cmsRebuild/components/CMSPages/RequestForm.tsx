@@ -31,7 +31,7 @@ import { ICmsRebuildProps } from "../ICmsRebuildProps";
 import * as moment from "moment";
 // import { Form, Input, Button, Select, Spin, message, Radio, DatePicker, Upload, Space } from "antd";
 import { DatePicker } from "antd";
-import "./RequestForm.scss";
+import "./RequestForm.css";
 import {
   saveDataToSharePoint,
   getSharePointData,

@@ -1,5 +1,5 @@
-// @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
-// Changed by Akashdeep Singh
+ /* @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap'); */
+ /* Changed by Akashdeep Singh */
 
 :root {
   --bg-light: #ffffff;
@@ -21,17 +21,8 @@
 .headingColor {
   color: var(--bg-light);
   margin:0px !important;
-  // color: var(--theme-color);
 }
 
-// .boottomBorder {
-//   // border-bottom: 1px solid var(--dark);
-// }
-
-// .table thead th {
-//   // background-color: var(--theme-color);
-//   // color: var(--bg-light);
-// }
 
 .table-head {
   background-color: var(--theme-color);
@@ -68,12 +59,11 @@ input[type="number"] {
     background: var(--theme-color);
     border-radius: 5px;
     padding: 0px 8px;
-    // color: blue !important;
 }
 
 .section-content {
   margin-top: 10px;
-  background: #f8fafc; // subtle light background
+  background: #f8fafc;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(3, 93, 162, 0.10), 0 1.5px 4px rgba(0,0,0,0.06);
   padding: 18px 20px;
@@ -89,7 +79,7 @@ input:disabled,
 select:disabled,
 textarea:disabled {
   color: var(--dark) !important;
-  background-color: #f5f5f5; // Optional: subtle background for disabled
+  background-color: #f5f5f5;
   opacity: 1; 
 }
 
