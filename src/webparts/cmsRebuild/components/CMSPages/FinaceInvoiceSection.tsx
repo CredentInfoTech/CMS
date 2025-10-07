@@ -4,7 +4,6 @@
 /* eslint-disable eqeqeq */
 
 import * as React from "react";
-import "./FinaceInvoiceSection.scss";
 import { useState, useEffect } from "react";
 import { addFileInSharepoint, handleDownload, updateDataToSharePoint, getSharePointData, saveDataToSharePoint, getDocumentLibraryDataWithSelect} from "../services/SharePointService";
 export default function FinaceInvoiceSection({

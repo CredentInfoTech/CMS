@@ -1,0 +1,59 @@
+trigger:
+  branches:
+    include:
+      - master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  # 1️⃣ Checkout repository
+  - task: Checkout@1
+    displayName: "Checkout repository"
+
+  # 2️⃣ Setup Node.js
+  - task: UseNode@1
+    inputs:
+      version: "20.x"
+    displayName: "Setup Node.js"
+
+  # 3️⃣ Install dependencies
+  - script: npm ci
+    displayName: "Install dependencies"
+
+  # 4️⃣ Build and package the SPFx solution
+  - script: |
+      gulp clean
+      gulp bundle --ship
+      gulp package-solution --ship
+    displayName: "Bundle & Package SPFx solution"
+
+  # 5️⃣ Debug - Verify .sppkg file exists
+  - script: ls -R sharepoint/solution
+    displayName: "Debug .sppkg file path"
+
+  # 6️⃣ Install CLI for Microsoft 365
+  - script: npm install -g @pnp/cli-microsoft365
+    displayName: "Install CLI for Microsoft 365"
+
+  # 7️⃣ Login to Microsoft 365 using certificate authentication
+  - script: |
+      m365 login --authType certificate \
+        --appId $(APP_ID) \
+        --tenant $(TENANT_ID) \
+        --certificateBase64Encoded $(CERTIFICATE_ENCODED) \
+        --password $(CERTIFICATE_PASSWORD)
+    displayName: "Login to Microsoft 365"
+
+  # 8️⃣ Verify login
+  - script: m365 status
+    displayName: "Verify M365 Login"
+
+  # 9️⃣ Deploy SPFx package to Site Collection App Catalog
+  - script: |
+      m365 spo app add --filePath sharepoint/solution/cms.sppkg \
+        --appCatalogScope sitecollection \
+        --appCatalogUrl https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev/AppCatalog \
+        --overwrite
+      m365 spo app deploy --name cms.sppkg --appCatalogScope sitecollection --appCatalogUrl https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev/AppCatalog --skipFeatureDeployment
+    displayName: "Deploy SPFx App to Site Collection App Catalog"
