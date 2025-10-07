@@ -13,10 +13,10 @@ import { SPHttpClient, SPHttpClientResponse } from "@microsoft/sp-http";
 sp.setup({
   sp: {
     // --- Devsite ---- // 
-  baseUrl: "https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev",
+  // baseUrl: "https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev",
 
     // --- Production site ---- ///
-    //  baseUrl: "https://credentinfotec.sharepoint.com/sites/Intranet-Portal",
+     baseUrl: "https://credentinfotec.sharepoint.com/sites/Intranet-Portal",
   },
 });
 
@@ -440,9 +440,9 @@ export const uploadFileWithMetadata = async (
 
     // Always use the correct server-relative URL (no /_layouts/15/)
     // devsite ---/
-   const folderServerRelativeUrl = `/sites/IntranetPortal-Dev/${libarayName}`;
+  //  const folderServerRelativeUrl = `/sites/IntranetPortal-Dev/${libarayName}`;
     //-- Production site ---- ///
-  //  const folderServerRelativeUrl = `/sites/Intranet-Portal/${libarayName}`;
+   const folderServerRelativeUrl = `/sites/Intranet-Portal/${libarayName}`;
     const folder = sp.web.getFolderByServerRelativePath(
       folderServerRelativeUrl
     );
