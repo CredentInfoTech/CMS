@@ -5,6 +5,7 @@
 import * as React from "react";
 import { useEffect, useState } from "react";
 import { ICmsRebuildProps } from "../ICmsRebuildProps";
+import ListDetail from "./ListDetail";
 // import { SPHttpClient } from "@microsoft/sp-http";
 import {
   //   updateDataToSharePoint,
@@ -25,6 +26,40 @@ interface DataType {
   link: string;
 }
 
+export default function MasterLists(props: ICmsRebuildProps) {
+  // const siteUrl = props.context.pageContext.web.absoluteUrl;
+  const masterList = "CMSMasterListsDetail";
+  const [listData, setListData] = useState<DataType[]>([]);
+  const [selectedList, setSelectedList] = useState<string | null>(null);
+  
+
+  useEffect(() => {
+    async function fetchData() {
+      const data = await getSharePointData(props, masterList, "");
+      const mappedData = (data || []).map((item: any, idx: number) => ({
+        key: item.Id || idx,
+        name: item.Title || "-",
+        description: item.Description || "-",
+        link: item.Link || "",
+        // link: item.Link ? item.Link : "",
+      }));
+      setListData(mappedData);
+    }
+    fetchData();
+  }, [props]);
+
+  if (selectedList) {
+    return (
+      <ListDetail
+        props={props}
+        listName={selectedList}
+        onExit={() => setSelectedList(null)}
+      />
+    );
+  }
+
+
+
 const columns: TableColumnsType<DataType> = [
   {
     title: "Name",
@@ -41,45 +76,34 @@ const columns: TableColumnsType<DataType> = [
     width: "40%",
   },
   {
-    title: "Link",
-    dataIndex: "link",
-    render: (text: string) =>
-      text ? (
-        <span
-          // variant="contained"
-          // color="primary"
-          style={{
-            // background: "#FF6059",
-            // color: "white",
-            color: "#035DA2",
-            height: "35px",
-            width: "35px",
-            display: "flex",
-            justifyContent: "center",
+  title: "Link",
+  dataIndex: "link",
+  render: (text: string) =>
+    text ? (
+      <span
+        style={{
+          color: "#035DA2",
+          height: "35px",
+          width: "35px",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          borderRadius: "5px",
+          fontSize: "25px",
+          cursor: "pointer", // 👈 makes it clickable
+          transition: "transform 0.2s ease",
+        }}
+        onClick={() => setSelectedList(text)} // 👈 opens the ListDetail component
+        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
+      >
+        <FontAwesomeIcon icon={faEdit} />
+      </span>
+    ) : (
+      "-"
+    ),
+},
 
-            alignItems: "center",
-            borderRadius: "5px",
-            fontSize: "25px",
-          }}
-        >
-          {/* <FontAwesomeIcon icon={faPlus} /> */}
-
-          <a
-            href={text}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: "#035DA2",
-              textDecoration: "none",
-            }}
-          >
-            <FontAwesomeIcon icon={faEdit} />{" "}
-          </a>
-        </span>
-      ) : (
-        "-"
-      ),
-  },
 ];
 
 const onChange: TableProps<DataType>["onChange"] = (
@@ -91,24 +115,9 @@ const onChange: TableProps<DataType>["onChange"] = (
   console.log("params", pagination, filters, sorter, extra);
 };
 
-export default function MasterLists(props: ICmsRebuildProps) {
-  const siteUrl = props.context.pageContext.web.absoluteUrl;
-  const masterList = "CMSMasterListsDetail";
-  const [listData, setListData] = useState<DataType[]>([]);
 
-  useEffect(() => {
-    async function fetchData() {
-      const data = await getSharePointData(props, masterList, "");
-      const mappedData = (data || []).map((item: any, idx: number) => ({
-        key: item.Id || idx,
-        name: item.Title || "-",
-        description: item.Description || "-",
-        link: item.Link ? `${siteUrl}/Lists/${item.Link}/AllItems.aspx` : "",
-      }));
-      setListData(mappedData);
-    }
-    fetchData();
-  }, [props]);
+
+
 
   return (
     <div
