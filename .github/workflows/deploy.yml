@@ -1,59 +1,53 @@
-trigger:
-  branches:
-    include:
+name: Deploy Solution to Dev Environment CMS
+
+on:
+  push:
+    branches:
       - master
+  workflow_dispatch:
 
-pool:
-  vmImage: ubuntu-latest
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-steps:
-  # 1️⃣ Checkout repository
-  - task: Checkout@1
-    displayName: "Checkout repository"
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: 'npm'
 
-  # 2️⃣ Setup Node.js
-  - task: UseNode@1
-    inputs:
-      version: "20.x"
-    displayName: "Setup Node.js"
+      - name: Install Gulp CLI
+        run: npm install --global gulp-cli
 
-  # 3️⃣ Install dependencies
-  - script: npm ci
-    displayName: "Install dependencies"
+      - name: Run npm ci
+        run: npm ci
 
-  # 4️⃣ Build and package the SPFx solution
-  - script: |
-      gulp clean
-      gulp bundle --ship
-      gulp package-solution --ship
-    displayName: "Bundle & Package SPFx solution"
+      - name: Bundle & Package
+        run: |
+          gulp bundle --ship
+          gulp package-solution --ship
 
-  # 5️⃣ Debug - Verify .sppkg file exists
-  - script: ls -R sharepoint/solution
-    displayName: "Debug .sppkg file path"
+      - name: Debug File Path
+        run: ls -R sharepoint/solution
 
-  # 6️⃣ Install CLI for Microsoft 365
-  - script: npm install -g @pnp/cli-microsoft365
-    displayName: "Install CLI for Microsoft 365"
+      - name: CLI for Microsoft 365 Login
+        uses: pnp/action-cli-login@v2
+        with:
+          CERTIFICATE_ENCODED: ${{ secrets.CERTIFICATE_ENCODED }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          TENANT: ${{ secrets.TENANT_ID }}
 
-  # 7️⃣ Login to Microsoft 365 using certificate authentication
-  - script: |
-      m365 login --authType certificate \
-        --appId $(APP_ID) \
-        --tenant $(TENANT_ID) \
-        --certificateBase64Encoded $(CERTIFICATE_ENCODED) \
-        --password $(CERTIFICATE_PASSWORD)
-    displayName: "Login to Microsoft 365"
+      - name: Deploy App to DEV Site Collection App Catalog
+        id: devDeploy
+        uses: pnp/action-cli-deploy@v4
+        with:
+          APP_FILE_PATH: sharepoint/solution/cms.sppkg
+          SKIP_FEATURE_DEPLOYMENT: true
+          OVERWRITE: true
+          SCOPE: sitecollection
+          SITE_COLLECTION_URL: https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev
 
-  # 8️⃣ Verify login
-  - script: m365 status
-    displayName: "Verify M365 Login"
 
-  # 9️⃣ Deploy SPFx package to Site Collection App Catalog
-  - script: |
-      m365 spo app add --filePath sharepoint/solution/cms.sppkg \
-        --appCatalogScope sitecollection \
-        --appCatalogUrl https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev/AppCatalog \
-        --overwrite
-      m365 spo app deploy --name cms.sppkg --appCatalogScope sitecollection --appCatalogUrl https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev/AppCatalog --skipFeatureDeployment
-    displayName: "Deploy SPFx App to Site Collection App Catalog"
