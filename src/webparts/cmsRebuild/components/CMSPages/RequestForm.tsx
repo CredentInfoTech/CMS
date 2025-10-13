@@ -7,8 +7,11 @@
 /* eslint-disable max-lines */
 /* eslint-disable  eqeqeq */
 /* eslint-disable  no-empty */
+/* eslint-disable  @typescript-eslint/no-unused-vars */
 
 import * as React from "react";
+
+import { Snackbar, Alert } from "@mui/material";
 
 // import { SPHttpClient } from '@microsoft/sp-http';
 
@@ -28,7 +31,7 @@ import { useCallback, useState, useEffect, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import RequesterInvoiceSection from "./RequesterInvoiceSection";
 import { ICmsRebuildProps } from "../ICmsRebuildProps";
-import * as moment from "moment";
+import moment from "moment";
 // import { Form, Input, Button, Select, Spin, message, Radio, DatePicker, Upload, Space } from "antd";
 import { DatePicker } from "antd";
 import "./RequestForm.css";
@@ -62,7 +65,7 @@ import {
   faUpload,
   faAngleUp,
   faAngleDown,
-  faFloppyDisk
+  faFloppyDisk,
 } from "@fortawesome/free-solid-svg-icons";
 import AzureSection from "./AzureSectiontoday";
 import Dashboard from "./Dashboard"; // Import Dashboard component
@@ -71,8 +74,95 @@ import Spinner from "react-bootstrap/Spinner";
 // import Alert from "antd/es/alert/Alert";
 // import { get } from "@microsoft/sp-lodash-subset";
 
+// MilestoneBar: displays a horizontal chevron-style milestone strip
+const MilestoneBar: React.FC<{ status?: string }> = ({ status }) => {
+  const stages = [
+    // "Draft",
+    "Pending From Approver",
+    "Hold",
+    "Reminder",
+    "Approved",
+  ];
+
+  const currentIndex = stages.indexOf(status || "");
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0,
+        flexWrap: "nowrap",
+        overflowX: "auto",
+        justifyContent: "center",
+        marginTop: 20,
+      }}
+    >
+      {stages.map((stage, i) => {
+        let state: "done" | "active" | "upcoming" = "upcoming";
+        if (currentIndex >= 0) {
+          if (i < currentIndex) state = "done";
+          else if (i === currentIndex) state = "active";
+        }
+
+        const background =
+          state === "done"
+            ? "linear-gradient(90deg,#28a745,#0f9d58)"
+            : state === "active"
+            ? "linear-gradient(90deg,#ffb84d,#ff8a00)"
+            : "#e9ecef";
+
+        const color = state === "upcoming" ? "#343a40" : "#ffffff";
+
+        return (
+          <div
+            key={stage}
+            title={stage}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "10px 26px",
+              color,
+              fontWeight: 700,
+              fontSize: 13,
+              background,
+              clipPath:
+                "polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 18px 50%)",
+              boxShadow:
+                state === "active" ? "0 6px 18px rgba(0,0,0,0.12)" : "none",
+              marginLeft: i === 0 ? 0 : -18,
+              zIndex: stages.length - i,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {stage}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const RequestForm = (props: ICmsRebuildProps) => {
   sp.setup({ spfxContext: { pageContext: props.context.pageContext } });
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info", // "success", "error", "warning", "info"
+  });
+
+  const showSnackbar = (
+    message: string,
+    severity: "success" | "error" | "warning" | "info"
+  ) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
 
   const { context } = props;
   const [azureSectionData, setAzureSectionData] = useState<any[]>([]);
@@ -95,6 +185,8 @@ const RequestForm = (props: ICmsRebuildProps) => {
   const [uid, setUid] = useState("");
   // const MainList = "CMSRequestNew";
   const MainList = "CMSRequest";
+  const OperationalEditRequest = "OperationalCMSEditRequest";
+  const OperationalEditInvoiceHistory = "OperationalCMSEditInvoiceHistory";
   // const InvoicelistName = "CMSRequestDetailsNew";
   const InvoicelistName = "CMSRequestDetails";
   const CompanyMaster = "CompanyMaster";
@@ -165,8 +257,16 @@ const RequestForm = (props: ICmsRebuildProps) => {
   const [isInvoiceSectionCollapsed, setIsInvoiceSectionCollapsed] =
     useState(true);
   const [isAzureSectionCollapsed, setIsAzureSectionCollapsed] = useState(true);
+  // Approval checkboxes state for sections: client/work, PO, invoice
+  const [approvalChecks, setApprovalChecks] = useState({
+    client: false,
+    po: false,
+    invoice: false,
+  });
   const poFileInputRef = useRef<HTMLInputElement>(null); // Add ref for PO file input
   const bgFileInputRef = useRef<HTMLInputElement>(null); // Add ref for PO file input
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     const siteUrl = props.context.pageContext.web.absoluteUrl;
@@ -182,6 +282,16 @@ const RequestForm = (props: ICmsRebuildProps) => {
     console.log("Current User:", currentUser);
     console.log("Current User Email:", currentUserEmail);
   }, []); // Run only once on component mount
+
+  const [deletedInvoiceItemIDs, setDeletedInvoiceItemIDs] = useState<number[]>(
+    []
+  );
+
+  const [operationalEdits, setOperationalEdits] = useState<any[]>([]);
+  const [loadingOperationalEdits, setLoadingOperationalEdits] = useState(false);
+  const [showOperationalEdits, setShowOperationalEdits] = useState(false);
+  const [showCurrentOperational, setShowCurrentOperational] = useState(true);
+  const [showOldOperational, setShowOldOperational] = useState(false);
 
   // function formatDateForDateInput(isoDate: string | null | undefined): string {
   //   if (!isoDate) return "";
@@ -322,11 +432,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
       InvoiceNo: "",
       InvoiceDate: "",
       InvoiceTaxAmount: "",
-      ClaimNo: "",
+      ClaimNo: null as number | null,
       RequestID: "",
       DocId: "",
       PendingAmount: "",
       InvoiceFileID: "",
+      invoiceApprovalChecked: false, // Initialize here
+      PrevInvoiceStatus: "",
     },
   ]);
 
@@ -339,26 +451,93 @@ const RequestForm = (props: ICmsRebuildProps) => {
       .toFixed(2);
   }
 
-  const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
-    if (event && typeof event.preventDefault === "function") {
-      event.preventDefault();
+  // const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
+  //   if (event && typeof event.preventDefault === "function") {
+  //     event.preventDefault();
+  //   }
+  //   if (props.refreshCmsDetails) {
+  //     await props.refreshCmsDetails();
+  //   }
+  //   if (props.onExit) {
+  //     props.onExit();
+  //     // Do not perform local navigation if onExit is provided
+  //     return;
+  //   }
+  //   setNavigateToDashboard(true);
+  //   setTimeout(() => {
+  //     setDashboardKey((prev) => prev + 1);
+  //     setNavigateToDashboard(true);
+  //   }, 100);
+  //   setNavigateToDashboard(true);
+  // };
+
+  // const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
+  //   try {
+  //     if (event && typeof event.preventDefault === "function") {
+  //       event.preventDefault();
+  //     }
+
+  //     // Ensure props.refreshCmsDetails is a function before calling it
+  //     if (typeof props.refreshCmsDetails === "function") {
+  //       await props.refreshCmsDetails();
+  //     }
+
+  //     // Ensure props.onExit is a function before calling it
+  //     if (typeof props.onExit === "function") {
+  //       props.onExit();
+  //       // Exit early if onExit is provided
+  //       return;
+  //     }
+
+  //     // Set navigation state only once
+  //     setNavigateToDashboard(true);
+
+  //     // Use a single state update for dashboard navigation
+  //     setTimeout(() => {
+  //       setDashboardKey((prev) => prev + 1);
+  //     }, 100);
+  //   } catch (error) {
+  //     console.error("Error in handleExit:", error);
+  //   }
+  // };
+
+  // New helper: refresh UI and optionally navigate to dashboard.
+  // Use navigate=false for approve/hold/reject/remind flows to avoid redirect.
+  const finalizeAction = async (navigate = false) => {
+    try {
+      if (typeof props.refreshCmsDetails === "function") {
+        await props.refreshCmsDetails();
+      }
+
+      if (typeof props.onExit === "function") {
+        // call onExit but do not force local navigation if caller chose not to
+        props.onExit();
+        // If onExit exists we prefer it over internal navigation
+        return;
+      }
+
+      if (navigate) {
+        setNavigateToDashboard(true);
+        setTimeout(() => {
+          setDashboardKey((prev) => prev + 1);
+        }, 100);
+      }
+    } catch (err) {
+      console.error("finalizeAction error:", err);
     }
-    if (props.refreshCmsDetails) {
-      await props.refreshCmsDetails();
-    }
-    if (props.onExit) {
-      props.onExit();
-      // Do not perform local navigation if onExit is provided
-      return;
-    }
-    setNavigateToDashboard(true);
-    setTimeout(() => {
-      setDashboardKey((prev) => prev + 1);
-      setNavigateToDashboard(true);
-    }, 100);
-    setNavigateToDashboard(true);
   };
 
+  // update handleExit to reuse helper (keeps previous behaviour)
+  const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
+    try {
+      if (event && typeof event.preventDefault === "function") {
+        event.preventDefault();
+      }
+      await finalizeAction(true); // original exit should navigate
+    } catch (error) {
+      console.error("Error in handleExit:", error);
+    }
+  };
   const getTotalInvoiceAmount = (popupRows: any[], chargeRows: any[]) => {
     const totalInvoiceValue = parseFloat(getInvoiceTotal(popupRows));
     let supportCharges = 0;
@@ -417,6 +596,49 @@ const RequestForm = (props: ICmsRebuildProps) => {
   const [editInvoiceRows, setEditInvoiceRows] = useState<any[]>([]);
   console.log(editInvoiceRows);
 
+  // useEffect(() => {
+  //   if (
+  //     props.rowEdit === "Yes" &&
+  //     props.selectedRow &&
+  //     props.selectedRow.invoiceDetails
+  //   ) {
+  //     console.log(
+  //       props.selectedRow.isAzureRequestClosed,
+  //       "props.selectedRow.invoiceDetailsprops.selectedRow.invoiceDetails"
+  //     );
+  //     console.log(props.selectedRow, "props.isazuee");
+  //     const invoiceData = props.selectedRow.invoiceDetails.map(
+  //       (invoice: any, index: number) => ({
+  //         id: index + 1,
+  //         InvoiceDescription: invoice.Comments || "",
+  //         RemainingPoAmount: invoice.PoAmount || "",
+  //         InvoiceAmount: invoice.InvoiceAmount || "",
+  //         InvoiceDueDate: invoice.InvoiceDueDate
+  //           ? new Date(invoice.InvoiceDueDate).toLocaleDateString("en-GB")
+  //           : "",
+  //         InvoiceProceedDate: invoice.ProceedDate
+  //           ? new Date(invoice.ProceedDate).toLocaleDateString("en-GB")
+  //           : "",
+  //         showProceed: true,
+  //         InvoiceStatus: invoice.InvoiceStatus || "",
+  //         userInGroup: false,
+  //         employeeEmail: props.selectedRow.employeeEmail || "",
+  //         InvoiceNo: invoice.InvoicNo || "",
+  //         InvoiceDate: invoice.InvoiceDate || "",
+  //         InvoiceTaxAmount: invoice.InvoiceTaxAmount,
+  //         itemID: invoice.Id,
+  //         ClaimNo: invoice.ClaimNo || null,
+  //         PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
+  //         RequestID: invoice.RequestID || "",
+  //         DocId: invoice.DocId || "",
+  //         PendingAmount: "",
+  //         InvoiceFileID: invoice.InvoiceFileID,
+  //       })
+  //     );
+  //     setEditInvoiceRows(invoiceData);
+  //   }
+  // }, [props.rowEdit, props.selectedRow]);
+
   useEffect(() => {
     if (
       props.rowEdit === "Yes" &&
@@ -428,6 +650,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
         "props.selectedRow.invoiceDetailsprops.selectedRow.invoiceDetails"
       );
       console.log(props.selectedRow, "props.isazuee");
+
       const invoiceData = props.selectedRow.invoiceDetails.map(
         (invoice: any, index: number) => ({
           id: index + 1,
@@ -448,16 +671,27 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceDate: invoice.InvoiceDate || "",
           InvoiceTaxAmount: invoice.InvoiceTaxAmount,
           itemID: invoice.Id,
-          ClaimNo: invoice.ClaimNo || "",
+          ClaimNo: invoice.ClaimNo || null,
+          PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
           RequestID: invoice.RequestID || "",
           DocId: invoice.DocId || "",
           PendingAmount: "",
           InvoiceFileID: invoice.InvoiceFileID,
         })
       );
-      setEditInvoiceRows(invoiceData);
+
+      // Update `editInvoiceRows` only if the data has changed
+      setEditInvoiceRows((prevRows) => {
+        const isDataChanged =
+          JSON.stringify(prevRows) !== JSON.stringify(invoiceData);
+        if (isDataChanged) {
+          console.log("Updating editInvoiceRows with new data:", invoiceData);
+          return invoiceData;
+        }
+        return prevRows;
+      });
     }
-  }, [props.rowEdit, props.selectedRow]);
+  }, [props.rowEdit, props.selectedRow, props.selectedRow?.invoiceDetails]);
 
   const generateRequestId = async (
     data: { ShortName?: string; LastUsedValue?: number; Id?: number }[]
@@ -528,11 +762,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceNo: "",
           InvoiceDate: "",
           InvoiceTaxAmount: "",
-          ClaimNo: "",
+          ClaimNo: null as number | null,
+          PrevInvoiceStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
           InvoiceFileID: "",
+          invoiceApprovalChecked: false, // Initialize here
         },
       ]);
       setProductServiceOptions(filtered);
@@ -786,11 +1022,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceNo: "",
           InvoiceDate: "",
           InvoiceTaxAmount: "",
-          ClaimNo: "",
+          ClaimNo: null,
+          PrevInvoiceStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
           InvoiceFileID: "",
+          invoiceApprovalChecked: false, // Initialize here
         },
       ]);
       return;
@@ -834,11 +1072,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceNo: "",
           InvoiceDate: "",
           InvoiceTaxAmount: "",
-          ClaimNo: "",
+          ClaimNo: null,
+          PrevInvoiceStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
           InvoiceFileID: "",
+          invoiceApprovalChecked: false, // Initialize here
         },
       ]);
     }
@@ -1000,19 +1240,24 @@ const RequestForm = (props: ICmsRebuildProps) => {
 
       // Update RemainingPoAmount dynamically
       if (field === "InvoiceAmount") {
-        const poAmt = Number(formData.poAmount) || 0;
+        const poAmt = parseFloat(formData.poAmount) || 0;
 
         // Recalculate RemainingPoAmount for every row
         let runningRemaining = poAmt;
-        for (let idx = 0; idx < updatedRows.length; idx++) {
-          if (idx === 0) {
-            updatedRows[idx].RemainingPoAmount = runningRemaining.toFixed(2);
-          } else {
-            const prevAmount = Number(updatedRows[idx - 1].InvoiceAmount) || 0;
-            runningRemaining = runningRemaining - prevAmount;
-            updatedRows[idx].RemainingPoAmount = runningRemaining.toFixed(2);
-          }
-        }
+        updatedRows = updatedRows.map((row, idx) => {
+          const invoiceAmount = parseFloat(row.InvoiceAmount) || 0;
+
+          // Update RemainingPoAmount for the current row
+          const updatedRow = {
+            ...row,
+            RemainingPoAmount: runningRemaining.toFixed(2),
+          };
+
+          // Deduct the current row's InvoiceAmount from runningRemaining
+          runningRemaining -= invoiceAmount;
+
+          return updatedRow;
+        });
 
         // Auto-add/remove rows based on remaining PO amount
         const totalInvoiceAmount = updatedRows.reduce(
@@ -1021,11 +1266,17 @@ const RequestForm = (props: ICmsRebuildProps) => {
         );
         const remainingAfter = +(poAmt - totalInvoiceAmount).toFixed(2);
         const lastRow = updatedRows[updatedRows.length - 1];
-        const lastRowHasValue = lastRow && String(lastRow.InvoiceAmount).trim() !== "" && Number(lastRow.InvoiceAmount) !== 0;
+        const lastRowHasValue =
+          lastRow &&
+          String(lastRow.InvoiceAmount).trim() !== "" &&
+          Number(lastRow.InvoiceAmount) !== 0;
 
         if (poAmt > 0 && remainingAfter > 0 && lastRowHasValue) {
-          // append new blank row for continued entry
-          const maxId = updatedRows.length > 0 ? Math.max(...updatedRows.map((r) => r.id)) : 0;
+          // Append new blank row for continued entry
+          const maxId =
+            updatedRows.length > 0
+              ? Math.max(...updatedRows.map((r) => r.id))
+              : 0;
           updatedRows.push({
             id: maxId + 1,
             InvoiceDescription: "",
@@ -1042,11 +1293,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
             InvoiceNo: "",
             InvoiceDate: "",
             InvoiceTaxAmount: "",
-            ClaimNo: "",
+            ClaimNo: null,
+            PrevInvoiceStatus: "",
             RequestID: "",
             DocId: "",
             PendingAmount: "",
             InvoiceFileID: "",
+            invoiceApprovalChecked: false, // Initialize here
           });
         }
 
@@ -1061,7 +1314,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
             }
           }
           if (lastFilledIndex === -1) {
-            // nothing filled; keep single empty row and show full PO amount as remaining
+            // Nothing filled; keep single empty row and show full PO amount as remaining
             updatedRows = [
               {
                 id: updatedRows[0]?.id || 1,
@@ -1079,15 +1332,17 @@ const RequestForm = (props: ICmsRebuildProps) => {
                 InvoiceNo: "",
                 InvoiceDate: "",
                 InvoiceTaxAmount: "",
-                ClaimNo: "",
+                ClaimNo: null,
+                PrevInvoiceStatus: "",
                 RequestID: "",
                 DocId: "",
                 PendingAmount: "",
                 InvoiceFileID: "",
+                invoiceApprovalChecked: false, // Initialize here
               },
             ];
           } else {
-            // keep rows up to last filled; their RemainingPoAmount values were already calculated above
+            // Keep rows up to last filled; their RemainingPoAmount values were already calculated above
             updatedRows = updatedRows.slice(0, lastFilledIndex + 1);
           }
         }
@@ -1096,7 +1351,6 @@ const RequestForm = (props: ICmsRebuildProps) => {
       return updatedRows;
     });
   };
-
   const addInvoiceRow = () => {
     setInvoiceRows((prevRows) => {
       const totalInvoiceAmount = prevRows.reduce(
@@ -1127,11 +1381,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceNo: "",
           InvoiceDate: "",
           InvoiceTaxAmount: "",
-          ClaimNo: "",
+          ClaimNo: null as number | null,
+          PrevInvoiceStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
           InvoiceFileID: "",
+          invoiceApprovalChecked: false, // Initialize here
         },
       ];
     });
@@ -1198,11 +1454,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
         InvoiceNo: "",
         InvoiceDate: "",
         InvoiceTaxAmount: "",
-        ClaimNo: "",
+        ClaimNo: null,
+        PrevInvoiceStatus: "",
         RequestID: "",
         DocId: "",
         PendingAmount: "",
         InvoiceFileID: "",
+        invoiceApprovalChecked: false, // Initialize here
       },
     ]);
 
@@ -1215,6 +1473,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       const row = invoiceRows[index];
       const invoiceData = {
         ClaimNo: index + 1,
+        PrevInvoiceStatus: row.PrevInvoiceStatus || "",
         DocId: uid,
         Comments: row.InvoiceDescription,
         PoAmount: Number(row.RemainingPoAmount),
@@ -1270,6 +1529,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
         const cmsInvoiceData: any = {
           RequestID: requestId,
           ClaimNo: claimNo,
+          PrevInvoiceStatus: row.PrevInvoiceStatus || "",
           InvoiceAmount: Number(totalInvoiceAmount) || 0,
           InvoiceDueDate: row.dueDate
             ? moment(row.dueDate, [
@@ -2308,6 +2568,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
               //   : "",
               showProceed: true, // Show Proceed button
               InvoiceStatus: invoice.InvoiceStatus || "",
+
               userInGroup: UserInGroup, // Add userInGroup property
               employeeEmail: props.selectedRow.employeeEmail || "",
               InvoiceNo: invoice.InvoicNo || "",
@@ -2315,6 +2576,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
               InvoiceTaxAmount: invoice.InvoiceTaxAmount,
               itemID: invoice.Id,
               ClaimNo: invoice.ClaimNo || "",
+              PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
               RequestID: invoice.RequestID || "",
               DocId: invoice.DocId || "",
               PendingAmount: "",
@@ -2334,6 +2596,41 @@ const RequestForm = (props: ICmsRebuildProps) => {
           console.log("invoiceData", invoiceData);
         }
 
+        if (
+          props.rowEdit === "Yes" &&
+          props.selectedRow &&
+          props.selectedRow.invoiceDetails
+        ) {
+          const invoiceData = props.selectedRow.invoiceDetails.map(
+            (invoice: any, index: number) => ({
+              id: index + 1,
+              InvoiceDescription: invoice.Comments || "",
+              RemainingPoAmount: invoice.PoAmount || "",
+              InvoiceAmount: invoice.InvoiceAmount || "",
+              InvoiceDueDate: invoice.InvoiceDueDate
+                ? new Date(invoice.InvoiceDueDate).toLocaleDateString("en-GB")
+                : "",
+              InvoiceProceedDate: invoice.ProceedDate
+                ? new Date(invoice.ProceedDate).toLocaleDateString("en-GB")
+                : "",
+              showProceed: true,
+              InvoiceStatus: invoice.InvoiceStatus || "",
+              userInGroup: false,
+              employeeEmail: props.selectedRow.employeeEmail || "",
+              InvoiceNo: invoice.InvoicNo || "",
+              InvoiceDate: invoice.InvoiceDate || "",
+              InvoiceTaxAmount: invoice.InvoiceTaxAmount,
+              itemID: invoice.Id,
+              ClaimNo: invoice.ClaimNo || null,
+              PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
+              RequestID: invoice.RequestID || "",
+              DocId: invoice.DocId || "",
+              PendingAmount: "",
+              InvoiceFileID: invoice.InvoiceFileID,
+            })
+          );
+          setInvoiceRows(invoiceData);
+        }
         //   if (
         //     props.rowEdit === "Yes" &&
         //     (props.selectedRow.productType).toLowerCase() === "azure"
@@ -2621,93 +2918,6 @@ const RequestForm = (props: ICmsRebuildProps) => {
     }
   };
 
-  const handleEditRequest = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    id: number
-  ) => {
-    e.preventDefault();
-    console.log("update button clicked", id);
-
-    if (!formData.editReason || !formData.editReason.trim()) {
-      alert("Edit Reason is required.");
-      return;
-    }
-
-    const updatedata = {
-      ApproverStatus: "Open",
-      RunWF: "Yes",
-      editReason: formData.editReason,
-    };
-
-    try {
-      const updatedData = await updateDataToSharePoint(
-        MainList,
-        updatedata,
-        siteUrl,
-        id
-      );
-      console.log("updatedata", updatedData);
-
-      alert(
-        "Your request to edit has been sent to the Account/Project Manager. Please be patient until it is approved."
-      );
-      await props.refreshCmsDetails();
-      setNavigateToDashboard(true);
-      setTimeout(() => {
-        setDashboardKey((prev) => prev + 1);
-        setNavigateToDashboard(true);
-      }, 100);
-      setNavigateToDashboard(true);
-    } catch (error) {
-      console.error("Failed to update request:", error);
-      alert(
-        "Something went wrong while sending your edit request. Please try again."
-      );
-    }
-  };
-
-  const handleReminder = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    id: number
-  ) => {
-    e.preventDefault();
-    console.log("Reminder button clicked", id);
-
-    const updatedata = {
-      ApproverStatus: "Reminder",
-      RunWF: "Yes",
-    };
-
-    try {
-      const updatedData = await updateDataToSharePoint(
-        MainList,
-        updatedata,
-        siteUrl,
-        id
-      );
-
-      console.log("updatedata", updatedData);
-
-      alert(
-        "An Email is sent to the account manager and project manager to remind them about your request."
-      );
-      await props.refreshCmsDetails();
-      setNavigateToDashboard(true);
-      setTimeout(() => {
-        setDashboardKey((prev) => prev + 1);
-        setNavigateToDashboard(true);
-      }, 100);
-      setNavigateToDashboard(true);
-    } catch (error) {
-      console.error("Failed to update request:", error);
-      alert(
-        "Something went wrong while sending your edit request. Please try again."
-      );
-    }
-  };
-
-  // ...existing code...
-
   // const getVersionHistory = async () => {
   //   try {
   //     // Get the item ID from props.selectedRow (adjust if needed)
@@ -2766,12 +2976,11 @@ const RequestForm = (props: ICmsRebuildProps) => {
   //         criteriaRows = 4;
   //         break;
   //       case "2-monthly":
-  //         criteriaRows = 2;
+  //         criteriaRows = 6;
   //         break;
   //       default:
   //         criteriaRows = 1;
   //     }
-
   //     if (
   //       criteriaRows > 0 &&
   //       formData.startDate &&
@@ -2929,11 +3138,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
               InvoiceNo: "",
               InvoiceDate: "",
               InvoiceTaxAmount: "",
-              ClaimNo: "",
+              ClaimNo: null,
+              PrevInvoiceStatus: "",
               RequestID: "",
               DocId: "",
               PendingAmount: "",
               InvoiceFileID: "",
+              invoiceApprovalChecked: false, // Initialize here
             };
           });
 
@@ -2942,6 +3153,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       }
     }
   };
+
   const uploadPO = async () => {
     setIsLoading(true);
     if (!poFile) {
@@ -3117,6 +3329,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       const cmsInvoiceData: any = {
         RequestID: parentRequestId,
         ClaimNo: claimNo,
+
         InvoiceAmount: Number(totalInvoiceAmount) || 0,
         InvoiceDueDate: lastRow.dueDate
           ? moment(lastRow.dueDate, [
@@ -3214,14 +3427,830 @@ const RequestForm = (props: ICmsRebuildProps) => {
       setIsLoading(false);
     }
   };
+
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const handleEditRequestApproval = async (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    id: number
+  ) => {
+    e.preventDefault();
+    console.log("update button clicked", id);
+
+    if (
+      !approvalChecks.client &&
+      !approvalChecks.po &&
+      !approvalChecks.invoice
+    ) {
+      return;
+    }
+    if (
+      approvalChecks.invoice && // Use approvalChecks.invoice instead
+      !invoiceRows.some((row) => row.invoiceApprovalChecked)
+    ) {
+      showSnackbar("Please select at least one invoice.", "error");
+      return;
+    }
+
+    if (approvalChecks.invoice) {
+      const selectedInvoices = invoiceRows.filter(
+        (row) => row.invoiceApprovalChecked
+      );
+      console.log("Selected Invoice Details:", selectedInvoices);
+    }
+
+    // Log other necessary information
+    console.log("Approval Checks:", approvalChecks);
+    console.log("Selected ID:", id);
+
+    setSelectedId(id); // Set the selected ID for the popup
+    setIsPopupOpen(true); // Open the popup
+
+    // if (!formData.editReason || !formData.editReason.trim()) {
+    //   alert("Edit Reason is required.");
+    //   return;
+    // }
+  };
+
+  const handleClosePopup = () => {
+    setIsPopupOpen(false); // Close the popup
+    setReason(""); // Reset the reason field
+  };
+
+  // const handleSubmitEditRequestApproval = async (id: number) => {
+  //  const handleSubmitEditRequestApproval = async (
+  //  event?: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  //   id?: number
+  // ) => {
+  //   try {
+  //     if (!reason || reason.trim() === "") {
+  //       showSnackbar("Please provide a reason for the edit request.", "error");
+  //       return;
+  //     }
+
+  //     if (!approvalChecks || !invoiceRows) {
+  //       console.error("approvalChecks or invoiceRows is undefined.");
+  //       return;
+  //     }
+
+  //     const selectedSections = Object.entries(approvalChecks)
+  //       .filter(([_, checked]) => checked)
+  //       .map(([section, _]) => section)
+  //       .join(", ")
+  //       .trim();
+
+  //     let selectedInvoiceIDs: any[] = [];
+  //     if (approvalChecks.invoice) {
+  //       selectedInvoiceIDs = invoiceRows
+  //         .filter((row) => row.invoiceApprovalChecked)
+  //         .map((row) => row.itemID)
+  //         .filter((id) => id !== null); // Ensure no null values
+  //     }
+
+  //     console.log("Selected Sections:", selectedSections);
+  //     console.log("Selected Invoice IDs:", selectedInvoiceIDs);
+
+  //     // Step 1: Save data in OperationalCMSEditRequest
+  //     const editRequestData = {
+  //       RequestID: id,
+  //       Reason: reason.trim(),
+  //       UserName: currentUser,
+  //       UserEmail: currentUserEmail,
+  //       SelectedSections: selectedSections,
+  //       Status: "Pending Approval",
+  //       InvoiceID: selectedInvoiceIDs.join(", "),
+  //     };
+
+  //     console.log("Edit Request Data:", editRequestData);
+
+  //     const savedEditRequest = await saveDataToSharePoint(
+  //       OperationalEditRequest,
+  //       editRequestData,
+  //       siteUrl
+  //     );
+  //     console.log("Saved Edit Request:", savedEditRequest);
+
+  //     // Step 2: Update RunWF in MainList
+  //     const mainListUpdateData = {
+  //       ApproverStatus: "Pending From Approver",
+  //       ApproverComment: reason.trim(),
+  //       SelectedSections: selectedSections,
+  //       RunWF: "Yes",
+  //     };
+
+  //     console.log("Main List Update Data:", mainListUpdateData);
+
+  //     const updatedMainList = await updateDataToSharePoint(
+  //       MainList,
+  //       mainListUpdateData,
+  //       siteUrl,
+  //       id
+  //     );
+  //     console.log("Updated MainList:", updatedMainList);
+
+  //     // Step 3: Update status in InvoicelistName for selected invoices
+  //     if (approvalChecks.invoice) {
+  //       const selectedInvoices = invoiceRows.filter(
+  //         (row) => row.invoiceApprovalChecked
+  //       );
+
+  //       for (const invoice of selectedInvoices) {
+  //         const invoiceUpdateData = {
+  //           PrevInvoiceStatus: invoice.InvoiceStatus || "",
+  //           InvoiceStatus: "Pending Approval",
+  //           RunWF: "Yes",
+  //         };
+
+  //         console.log("Invoice Update Data:", invoiceUpdateData);
+
+  //         await updateDataToSharePoint(
+  //           InvoicelistName,
+  //           invoiceUpdateData,
+  //           siteUrl,
+  //           Number(invoice.itemID || null)
+  //         );
+  //       }
+  //       console.log("Updated Invoice Status for Selected Invoices");
+  //     }
+
+  //     // Show success message
+  //     showSnackbar(
+  //       "Your request to edit has been sent to the Account/Project Manager. Please be patient until it is approved.",
+  //       "success"
+  //     );
+
+  //     // Refresh CMS details and navigate to the dashboard
+  //      try {
+  //         if (event && typeof event.preventDefault === "function") {
+  //           event.preventDefault();
+  //         }
+
+  //         // Ensure props.refreshCmsDetails is a function before calling it
+  //         if (typeof props.refreshCmsDetails === "function") {
+  //           await props.refreshCmsDetails();
+  //         }
+
+  //         // Ensure props.onExit is a function before calling it
+  //         if (typeof props.onExit === "function") {
+  //           props.onExit();
+  //           // Exit early if onExit is provided
+  //           return;
+  //         }
+
+  //         // Set navigation state only once
+  //         // setNavigateToDashboard(true);
+
+  //         // Use a single state update for dashboard navigation
+  //         // setTimeout(() => {
+  //         //   setDashboardKey((prev) => prev + 1);
+  //         // }, 100);
+  //       } catch (error) {
+  //         console.error("Error in handleExit:", error);
+  //       }
+
+  //   } catch (error) {
+  //     console.error("Failed to process edit request:", error);
+  //     console.log(
+  //       "Something went wrong while sending your edit request. Please try again."
+  //     );
+  //   }
+  // };
+
+  // ...existing code...
+  const handleSubmitEditRequestApproval = async (
+    event?: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    id?: number
+  ) => {
+    try {
+      // Ensure id is provided and is a number (narrow type for TS)
+      if (typeof id !== "number") {
+        console.error("No request id provided to submit edit approval.");
+        showSnackbar("No request selected for approval.", "error");
+        return;
+      }
+
+      if (!reason || reason.trim() === "") {
+        showSnackbar("Please provide a reason for the edit request.", "error");
+        return;
+      }
+
+      if (!approvalChecks || !invoiceRows) {
+        console.error("approvalChecks or invoiceRows is undefined.");
+        return;
+      }
+
+      setIsLoading(true);
+
+      const selectedSections = Object.entries(approvalChecks)
+        .filter(([_, checked]) => checked)
+        .map(([section, _]) => section)
+        .join(", ")
+        .trim();
+
+      let selectedInvoiceIDs: any[] = [];
+      if (approvalChecks.invoice) {
+        selectedInvoiceIDs = invoiceRows
+          .filter((row) => row.invoiceApprovalChecked)
+          .map((row) => row.itemID)
+          .filter((id) => id !== null); // Ensure no null values
+      }
+
+      console.log("Selected Sections:", selectedSections);
+      console.log("Selected Invoice IDs:", selectedInvoiceIDs);
+
+      // Step 1: Save data in OperationalCMSEditRequest
+      const editRequestData = {
+        RequestID: id, // now guaranteed to be number
+        Reason: reason.trim(),
+        UserName: currentUser,
+        UserEmail: currentUserEmail,
+        SelectedSections: selectedSections,
+        Status: "Pending Approval",
+        InvoiceID: selectedInvoiceIDs.join(", "),
+        ContractID : formData.requestId || "", 
+      };
+
+      console.log("Edit Request Data:", editRequestData);
+
+      const savedEditRequest = await saveDataToSharePoint(
+        OperationalEditRequest,
+        editRequestData,
+        siteUrl
+      );
+      console.log("Saved Edit Request:", savedEditRequest);
+
+      // Step 2: Update RunWF in MainList
+      const mainListUpdateData = {
+        ApproverStatus: "Pending From Approver",
+        ApproverComment: reason.trim(),
+        SelectedSections: selectedSections,
+        RunWF: "Yes",
+      };
+
+      console.log("Main List Update Data:", mainListUpdateData);
+
+      const updatedMainList = await updateDataToSharePoint(
+        MainList,
+        mainListUpdateData,
+        siteUrl,
+        id // id is a number here
+      );
+      console.log("Updated MainList:", updatedMainList);
+
+      // Step 3: Update status in InvoicelistName for selected invoices
+      if (approvalChecks.invoice) {
+        const selectedInvoices = invoiceRows.filter(
+          (row) => row.invoiceApprovalChecked
+        );
+
+        for (const invoice of selectedInvoices) {
+          const invoiceUpdateData = {
+            PrevInvoiceStatus: invoice.InvoiceStatus || "",
+            InvoiceStatus: "Pending Approval",
+            RunWF: "Yes",
+          };
+
+          console.log("Invoice Update Data:", invoiceUpdateData);
+
+          await updateDataToSharePoint(
+            InvoicelistName,
+            invoiceUpdateData,
+            siteUrl,
+            Number(invoice.itemID || null)
+          );
+        }
+        console.log("Updated Invoice Status for Selected Invoices");
+      }
+
+      // Show success message
+      showSnackbar(
+        "Your request to edit has been sent to the Account/Project Manager. Please be patient until it is approved.",
+        "success"
+      );
+
+      setIsPopupOpen(false);
+      setReason("");
+
+      // Refresh CMS details and navigate to the dashboard
+      try {
+        if (event && typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+
+        // Ensure props.refreshCmsDetails is a function before calling it
+        if (typeof props.refreshCmsDetails === "function") {
+          await props.refreshCmsDetails();
+        }
+
+        // Ensure props.onExit is a function before calling it
+        if (typeof props.onExit === "function") {
+          props.onExit();
+          // Exit early if onExit is provided
+          return;
+        }
+      } catch (error) {
+        console.error("Error in handleExit:", error);
+      }
+    } catch (error) {
+      console.error("Failed to process edit request:", error);
+      console.log(
+        "Something went wrong while sending your edit request. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  // ...existing code...
+  // ...existing code...
+  const handleUpdateEditRequest = async (
+    event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
+  ) => {
+    console.log("Update Edit Request clicked");
+    console.log(
+      "Deleted invoice item IDs (during edit):",
+      deletedInvoiceItemIDs
+    );
+
+    setIsLoading(true);
+    try {
+      const selectedSections =
+        props.selectedRow?.selectedSections?.toLowerCase();
+
+      if (!selectedSections) {
+        alert("No sections selected for update.");
+        return;
+      }
+
+      if (selectedSections.includes("client")) {
+        // Validate mandatory fields for "client"
+        if (!formData.customerEmail.trim()) {
+          showSnackbar("Customer Email is required.", "error");
+          return;
+        }
+        if (!formData.location.trim()) {
+          showSnackbar("Work Location is required.", "error");
+          return;
+        }
+        if (!formData.workTitle.trim()) {
+          showSnackbar("Work Title is required.", "error");
+          return;
+        }
+        if (!formData.workDetail.trim()) {
+          showSnackbar("Work Detail is required.", "error");
+          return;
+        }
+
+        const clientData = {
+          CustomerEmail: formData.customerEmail,
+          Location: formData.location,
+          WorkTitle: formData.workTitle,
+          WorkDetails: formData.workDetail,
+          ApproverStatus: "Completed",
+          RunWF: "Yes",
+          SelectedSections: "",
+          ApproverComment: "",
+        };
+
+        try {
+          await updateDataToSharePoint(
+            MainList,
+            clientData,
+            siteUrl,
+            props.selectedRow.id
+          );
+          console.log("Client section updated successfully.");
+        } catch (error) {
+          console.error("Error updating Client section:", error);
+          showSnackbar("Failed to update Client section.", "error");
+        }
+      }
+
+      // Check and update "po" section
+      if (selectedSections.includes("po")) {
+        // Validate mandatory fields for "po"
+        if (!formData.poNo.trim()) {
+          showSnackbar("PO No is required.", "error");
+          return;
+        }
+
+        const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
+          formData.customerName
+        )}' and PoNo eq '${encodeURIComponent(formData.poNo)}'`;
+        const poNoData = await getSharePointData(
+          { context },
+          MainList,
+          poNoFilterQuery
+        );
+
+        if (poNoData && poNoData.length > 0) {
+          showSnackbar(
+            "A record with this PO No already exists for the selected Customer Name.",
+            "error"
+          );
+
+          return;
+        }
+        if (!formData.poDate.trim()) {
+          showSnackbar("PO Date is required.", "error");
+          return;
+        }
+        if (!formData.poAmount || Number(formData.poAmount) <= 0) {
+          showSnackbar(
+            "PO Amount is required and must be greater than 0.",
+            "error"
+          );
+          return;
+        }
+
+        const poData = {
+          PoNo: formData.poNo,
+          PoDate: formData.poDate
+            ? moment(formData.poDate, "DD-MM-YYYY").format("YYYY-MM-DD")
+            : null,
+          POAmount: Number(formData.poAmount),
+          ApproverStatus: "Completed",
+          RunWF: "Yes",
+          SelectedSections: "",
+          ApproverComment: "",
+        };
+
+        try {
+          await updateDataToSharePoint(
+            MainList,
+            poData,
+            siteUrl,
+            props.selectedRow.id
+          );
+          console.log("PO section updated successfully.");
+        } catch (error) {
+          console.error("Error updating PO section:", error);
+          showSnackbar("Failed to update PO section.", "error");
+        }
+      }
+
+      if (selectedSections.includes("invoice")) {
+        // Verify total of invoice rows equals PO Amount
+        const poAmt = Number(formData.poAmount) || 0;
+        const totalInvoiceAmount = invoiceRows.reduce((sum, r) => {
+          const v = Number(r.InvoiceAmount) || 0;
+          return sum + v;
+        }, 0);
+
+        // Allow small float tolerance
+        const EPS = 0.01;
+        if (Math.abs(totalInvoiceAmount - poAmt) > EPS) {
+          showSnackbar(
+            `Total of invoice amounts (${totalInvoiceAmount.toFixed(
+              2
+            )}) must equal PO Amount (${poAmt.toFixed(2)}).`,
+            "error"
+          );
+          return;
+        }
+
+        for (const row of invoiceRows) {
+          // Validate row data before proceeding
+          if (
+            !row.InvoiceDescription ||
+            !row.InvoiceAmount ||
+            !row.InvoiceDueDate
+          ) {
+            console.warn("Skipping invalid row:", row);
+
+            // Show a snackbar message for invalid rows
+            showSnackbar(
+              "One or more invoice rows have missing required fields. Please complete all fields before proceeding.",
+              "warning"
+            );
+            return;
+          }
+
+          // Proceed with valid rows
+          const invoiceData: any = {
+            Comments: row.InvoiceDescription,
+            PoAmount: Number(row.RemainingPoAmount),
+            InvoiceAmount: Number(row.InvoiceAmount),
+            InvoiceDueDate: row.InvoiceDueDate
+              ? moment(row.InvoiceDueDate, "DD-MM-YYYY").format("YYYY-MM-DD")
+              : null,
+            EmailBody: row.InvoiceComment,
+            RequestID: props.selectedRow.id,
+            ClaimNo: row.id,
+            PrevInvoiceStatus: "",
+          };
+
+          if (row.InvoiceStatus === "Pending Approval" && row.PrevInvoiceStatus!== "Generated") {
+            invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
+          }
+
+          try {
+            if (row.itemID) {
+              // Update existing invoice
+              await updateDataToSharePoint(
+                InvoicelistName,
+                invoiceData,
+                siteUrl,
+                row.itemID
+              );
+              console.log(`Invoice ${row.itemID} updated successfully.`);
+            } else {
+              // Create new invoice
+              invoiceData.InvoiceStatus = "Started"; // Set InvoiceStatus to "Started"
+              await saveDataToSharePoint(InvoicelistName, invoiceData, siteUrl);
+              console.log("New invoice created successfully.");
+            }
+          } catch (error) {
+            console.error("Error updating/creating invoice:", error);
+            alert("Failed to update/create invoice.");
+          }
+        }
+
+        if (
+          Array.isArray(deletedInvoiceItemIDs) &&
+          deletedInvoiceItemIDs.length > 0
+        ) {
+          try {
+            for (const delId of deletedInvoiceItemIDs) {
+              const numericId = Number(delId);
+              if (!isNaN(numericId)) {
+                // delete list item using PnP
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await sp.web.lists
+                  .getByTitle(InvoicelistName)
+                  .items.getById(numericId)
+                  .delete();
+                console.log(`Deleted invoice item id ${numericId}`);
+              }
+            }
+            // clear deleted ids after successful deletion
+            setDeletedInvoiceItemIDs([]);
+            console.log(
+              `Deleted ${deletedInvoiceItemIDs.length} removed invoice item(s).`,
+              "success"
+            );
+          } catch (delError) {
+            console.error("Error deleting invoice items:", delError);
+            showSnackbar(
+              "Failed to delete one or more removed invoice items. See console for details.",
+              "error"
+            );
+          }
+        }
+        // Update the main list with the required data after processing all invoices
+        const mainListData = {
+          ApproverStatus: "Completed",
+          RunWF: "Yes",
+          SelectedSections: "",
+          ApproverComment: "",
+        };
+
+        try {
+          await updateDataToSharePoint(
+            MainList,
+            mainListData,
+            siteUrl,
+            props.selectedRow.id
+          );
+          console.log("Main list updated successfully.");
+        } catch (error) {
+          console.error("Error updating main list:", error);
+          showSnackbar(
+            "Failed to update the main list. Please try again.",
+            "error"
+          );
+        }
+
+        // Single success message after all updates
+        showSnackbar("Edit request updated successfully.", "success");
+
+        try {
+          if (event && typeof event.preventDefault === "function") {
+            event.preventDefault();
+          }
+
+          // Ensure props.refreshCmsDetails is a function before calling it
+          if (typeof props.refreshCmsDetails === "function") {
+            await props.refreshCmsDetails();
+          }
+
+          // Ensure props.onExit is a function before calling it
+          if (typeof props.onExit === "function") {
+            props.onExit();
+            // Exit early if onExit is provided
+            return;
+          }
+        } catch (error) {
+          console.error("Error in handleExit:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error updating edit request:", error);
+      showSnackbar("Failed to update edit request. Please try again.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchOperationalEdits = useCallback(
+    async (requestId?: number) => {
+      if (!requestId) {
+        setOperationalEdits([]);
+        return;
+      }
+      setLoadingOperationalEdits(true);
+      try {
+        const filter = `$select=*,Id&$filter=RequestID eq ${requestId}&$orderby=Id desc`;
+        const data = await getSharePointData(
+          { context },
+          OperationalEditRequest,
+          filter
+        );
+        setOperationalEdits(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to fetch operational edit requests:", err);
+      } finally {
+        setLoadingOperationalEdits(false);
+      }
+    },
+    [context]
+  );
+
+  const handleReminder = async (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    id: number
+  ) => {
+    try {
+      e.preventDefault();
+    } catch {}
+
+    if (!id) return;
+
+    setIsLoading(true);
+    try {
+      // 1) Update any Operational Edit Requests for this RequestID that are Pending Approval -> Reminder
+      try {
+        const opsFilter = `$select=Id,Status&$filter=RequestID eq ${id} and Status eq 'Pending Approval'`;
+        const ops = await getSharePointData(
+          { context },
+          OperationalEditRequest,
+          opsFilter
+        );
+        if (Array.isArray(ops) && ops.length > 0) {
+          for (const op of ops) {
+            if (op?.Id) {
+              await updateDataToSharePoint(
+                OperationalEditRequest,
+                { Status: "Reminder" },
+                siteUrl,
+                op.Id
+              );
+            }
+          }
+        }
+      } catch (opErr) {
+        console.error(
+          "Failed to update Operational Edit Requests to Reminder:",
+          opErr
+        );
+        // continue to update main list even if operational updates fail
+      }
+
+      // 2) Update main list ApproverStatus -> Reminder
+      const updatedata = {
+        ApproverStatus: "Reminder",
+        RunWF: "Yes",
+      };
+
+      await updateDataToSharePoint(MainList, updatedata, siteUrl, id);
+
+      // 3) UX feedback + refresh
+      showSnackbar("Reminder sent to approvers.", "success");
+      await fetchOperationalEdits(id);
+      // await finalizeAction(false);
+      if (typeof props.refreshCmsDetails === "function") {
+        await props.refreshCmsDetails();
+        await finalizeAction(false);
+      }
+    } catch (error) {
+      console.error("Failed to send reminder:", error);
+      showSnackbar("Failed to send reminder. Please try again.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <div>
       {isLoading && <LoaderOverlay />}
       <div className="card p-4 shadow">
-        <h3 className="text-center fw-bold mb-5">
-          CMS Request
-          {/* <button onClick={getVersionHistory}>Get Version History</button> */}
-        </h3>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+            // style={{
+            //   display: "flex !important",
+            //   justifyContent: "center !important",
+            //   left: "0px !important",
+            // }}
+            //           style={{
+            //   zIndex: "2000 !important",
+            // }}
+            // sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}
+            className="snackbar-container"
+          >
+            <Alert
+              onClose={handleCloseSnackbar}
+              severity={
+                ["error", "info", "success", "warning"].includes(
+                  snackbar.severity
+                )
+                  ? (snackbar.severity as
+                      | "error"
+                      | "info"
+                      | "success"
+                      | "warning")
+                  : "info"
+              }
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </div>
+        <div
+          className="headingbar mb-5"
+          // style={
+          //   props.rowEdit === "Yes" &&
+          //   ["Pending From Approver", "Approved", "Hold", "Reminder"].includes(
+          //     props.selectedRow?.approverStatus
+          //   )
+          //     ? {
+          //         display: "flex",
+          //         justifyContent: "space-between",
+          //         alignItems: "center",
+          //       }
+          //     : {}
+          // }
+        >
+          <h3 className="text-center fw-bold">
+            CMS Request
+            {/* <button onClick={getVersionHistory}>Get Version History</button> */}
+          </h3>
+
+          {/* Conditionally render milestone and note message */}
+          {props.rowEdit === "Yes" &&
+            ["Pending From Approver", "Approved", "Hold", "Reminder"].includes(
+              props.selectedRow?.approverStatus
+            ) && (
+              <div>
+                <MilestoneBar status={props.selectedRow?.approverStatus} />
+                {/* <div style={{ marginTop: 8 }}>
+                  <div
+                    style={{
+                      color: "#6c757d",
+                      fontStyle: "italic",
+                      fontSize: "1rem",
+                    }}
+                  >
+                    Note: The request is currently in the "
+                    <span style={{ fontWeight: "bold", color: "#155724" }}>
+                      {props.selectedRow?.approverStatus || "-"}
+                    </span>
+                    " stage.
+                  </div>
+
+                  <div style={{ marginTop: 6, fontSize: 14, color: "#343a40" }}>
+                    <span style={{ fontWeight: 600, marginRight: 8 }}>
+                      Selected Sections:
+                    </span>
+                    {props.selectedRow?.selectedSections ? (
+                      props.selectedRow.selectedSections
+                        .split(",")
+                        .map((s: string, idx: number) => (
+                          <span
+                            key={idx}
+                            style={{
+                              display: "inline-block",
+                              background: "#f1f3f5",
+                              color: "#212529",
+                              borderRadius: 12,
+                              padding: "4px 10px",
+                              marginRight: 6,
+                              fontWeight: 600,
+                              fontSize: 13,
+                            }}
+                          >
+                            {s.trim()}
+                          </span>
+                        ))
+                    ) : (
+                      <span style={{ color: "#6c757d" }}>None</span>
+                    )}
+                  </div>
+                </div> */}
+              </div>
+            )}
+        </div>
         <form onSubmit={handleSubmit}>
           <div className="row">
             {/* Requester & Request ID */}
@@ -3292,9 +4321,38 @@ const RequestForm = (props: ICmsRebuildProps) => {
               aria-expanded={showClientWorkDetail}
               aria-controls="clientWorkDetailCollapse"
             >
-              <h5 className="mt-3 fw-bold headingColor">
-                Client & Work Detail
-              </h5>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                {/* Approval checkbox (shows only in editable mode and when payment not received) */}
+                {props.rowEdit === "Yes" &&
+                  requestClosed !== "Yes" &&
+                  props.selectedRow?.employeeEmail === currentUserEmail &&
+                  !["Approved", "Hold", "Pending From Approver"].includes(
+                    props.selectedRow.approverStatus
+                  ) && (
+                    <span
+                      className="form-check"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ display: "flex", alignItems: "center" }}
+                    >
+                      <input
+                        type="checkbox"
+                        id="cbClientWork"
+                        className="form-check-input"
+                        checked={approvalChecks.client}
+                        onChange={(e) =>
+                          setApprovalChecks((prev) => ({
+                            ...prev,
+                            client: e.target.checked,
+                          }))
+                        }
+                      />
+                    </span>
+                  )}
+                <h5 className="mt-3 fw-bold headingColor">
+                  Client & Work Detail
+                </h5>
+              </div>
+
               <button
                 type="button"
                 className="btn btn-link"
@@ -3414,27 +4472,6 @@ const RequestForm = (props: ICmsRebuildProps) => {
                   )}
                 </div>
 
-                {/* Location & Customer Email */}
-                <div className="col-md-3 mb-3">
-                  <label className="form-label">
-                    Work Location<span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${
-                      errors.location ? "is-invalid" : ""
-                    }`}
-                    name="location"
-                    value={formData.location}
-                    onChange={handleTextFieldChange}
-                    disabled={isDisabled}
-                  />
-
-                  {errors.location && (
-                    <div className="invalid-feedback">{errors.location}</div>
-                  )}
-                </div>
-
                 <div className="col-md-3 mb-3">
                   <label className="form-label">
                     Govt Contract<span style={{ color: "red" }}>*</span>
@@ -3489,7 +4526,17 @@ const RequestForm = (props: ICmsRebuildProps) => {
                     name="customerEmail"
                     value={formData.customerEmail}
                     onChange={handleTextFieldChange}
-                    disabled={isDisabled}
+                    // disabled={isDisabled }
+                    disabled={
+                      props.rowEdit === "Yes"
+                        ? !(
+                            props.selectedRow?.selectedSections
+                              ?.toLowerCase()
+                              .includes("client") &&
+                            props.selectedRow?.approverStatus === "Approved"
+                          )
+                        : false
+                    }
                   />
                   {errors.customerEmail && (
                     <div className="invalid-feedback">
@@ -3629,6 +4676,37 @@ const RequestForm = (props: ICmsRebuildProps) => {
                     </div>
                   )} */}
                 </div>
+
+                {/* Location & Customer Email */}
+                <div className="col-md-3 mb-3">
+                  <label className="form-label">
+                    Work Location<span style={{ color: "red" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className={`form-control ${
+                      errors.location ? "is-invalid" : ""
+                    }`}
+                    name="location"
+                    value={formData.location}
+                    onChange={handleTextFieldChange}
+                    // disabled={isDisabled}
+                    disabled={
+                      props.rowEdit === "Yes"
+                        ? !(
+                            props.selectedRow?.selectedSections
+                              ?.toLowerCase()
+                              .includes("client") &&
+                            props.selectedRow?.approverStatus === "Approved"
+                          )
+                        : false
+                    }
+                  />
+
+                  {errors.location && (
+                    <div className="invalid-feedback">{errors.location}</div>
+                  )}
+                </div>
                 <div className="col-md-3 mb-4">
                   <label className="form-label">
                     Work Title<span style={{ color: "red" }}>*</span>
@@ -3641,7 +4719,17 @@ const RequestForm = (props: ICmsRebuildProps) => {
                     name="workTitle"
                     value={formData.workTitle}
                     onChange={handleTextFieldChange}
-                    disabled={isDisabled}
+                    // disabled={isDisabled}
+                    disabled={
+                      props.rowEdit === "Yes"
+                        ? !(
+                            props.selectedRow?.selectedSections
+                              ?.toLowerCase()
+                              .includes("client") &&
+                            props.selectedRow?.approverStatus === "Approved"
+                          )
+                        : false
+                    }
                   />
                   {errors.workTitle && (
                     <div className="invalid-feedback">{errors.workTitle}</div>
@@ -3659,7 +4747,17 @@ const RequestForm = (props: ICmsRebuildProps) => {
                     rows={2}
                     value={formData.workDetail}
                     onChange={handleTextFieldChange}
-                    disabled={isDisabled}
+                    // disabled={isDisabled}
+                    disabled={
+                      props.rowEdit === "Yes"
+                        ? !(
+                            props.selectedRow?.selectedSections
+                              ?.toLowerCase()
+                              .includes("client") &&
+                            props.selectedRow?.approverStatus === "Approved"
+                          )
+                        : false
+                    }
                   />
                   {errors.workDetail && (
                     <div className="invalid-feedback">{errors.workDetail}</div>
@@ -3676,8 +4774,36 @@ const RequestForm = (props: ICmsRebuildProps) => {
               aria-expanded={showPODetails}
               aria-controls="poDetailsCollapse"
             >
-              {/* PO Details */}
-              <h5 className="mt-2 fw-bold headingColor">PO Details</h5>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                {" "}
+                {/* PO Details */}
+                {props.rowEdit === "Yes" &&
+                  requestClosed !== "Yes" &&
+                  props.selectedRow?.employeeEmail === currentUserEmail &&
+                  !["Approved", "Hold", "Pending From Approver"].includes(
+                    props.selectedRow.approverStatus
+                  ) && (
+                    <span
+                      className="form-check "
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ display: "flex", alignItems: "center" }}
+                    >
+                      <input
+                        type="checkbox"
+                        id="cbPoDetails"
+                        className="form-check-input"
+                        checked={approvalChecks.po}
+                        onChange={(e) =>
+                          setApprovalChecks((prev) => ({
+                            ...prev,
+                            po: e.target.checked,
+                          }))
+                        }
+                      />
+                    </span>
+                  )}
+                <h5 className="mt-2 fw-bold headingColor">PO Details</h5>
+              </div>
               <button
                 type="button"
                 className="btn btn-link"
@@ -3727,13 +4853,33 @@ const RequestForm = (props: ICmsRebuildProps) => {
                     name="poNo"
                     value={formData.poNo}
                     onChange={handleTextFieldChange}
+                    // disabled={
+                    //   requestClosed === "Yes" ||
+                    //   (props.selectedRow?.employeeEmail !==
+                    //     props.context.pageContext.user.email &&
+                    //     props.rowEdit === "Yes")
+                    // }
+
+                    // disabled={
+                    //   (isDisabled &&
+                    //     props.selectedRow.poNo &&
+                    //     props.rowEdit === "Yes") ||
+                    //   (props.selectedRow?.employeeEmail !==
+                    //     props.context.pageContext.user.email &&
+                    //     props.rowEdit === "Yes")
+                    // }
                     disabled={
-                      requestClosed === "Yes" ||
-                      (props.selectedRow?.employeeEmail !==
-                        props.context.pageContext.user.email &&
-                        props.rowEdit === "Yes")
+                      props.rowEdit === "Yes"
+                        ? !(
+                            props.selectedRow?.employeeEmail ===
+                              currentUserEmail &&
+                            props.selectedRow?.selectedSections
+                              ?.toLowerCase()
+                              .includes("po") &&
+                            props.selectedRow?.approverStatus === "Approved"
+                          )
+                        : false
                     }
-                    // disabled={(isDisabled && props.selectedRow.poNo && props.rowEdit === "Yes") || (props.selectedRow?.employeeEmail !== props.context.pageContext.user.email && props.rowEdit === "Yes")}
                   />
                   {errors.poNo && (
                     <div className="invalid-feedback">{errors.poNo}</div>
@@ -3790,13 +4936,33 @@ const RequestForm = (props: ICmsRebuildProps) => {
                       }
                       setFormData(updatedFormData);
                     }}
-                    // disabled={(isDisabled && props.selectedRow.poDate && props.rowEdit === "Yes") || (props.selectedRow?.employeeEmail !== props.context.pageContext.user.email && props.rowEdit === "Yes")
+                    // disabled={
+                    //   (isDisabled &&
+                    //     props.selectedRow.poDate &&
+                    //     props.rowEdit === "Yes") ||
+                    //   (props.selectedRow?.employeeEmail !==
+                    //     props.context.pageContext.user.email &&
+                    //     props.rowEdit === "Yes")
+                    // }
                     disabled={
-                      requestClosed === "Yes" ||
-                      (props.selectedRow?.employeeEmail !==
-                        props.context.pageContext.user.email &&
-                        props.rowEdit === "Yes")
+                      props.rowEdit === "Yes"
+                        ? !(
+                            props.selectedRow?.employeeEmail ===
+                              currentUserEmail &&
+                            props.selectedRow?.selectedSections
+                              ?.toLowerCase()
+                              .includes("po") &&
+                            props.selectedRow?.approverStatus === "Approved"
+                          )
+                        : false
                     }
+                    // disabled={
+                    //   requestClosed === "Yes" ||
+                    //   (props.selectedRow?.employeeEmail !==
+                    //     props.context.pageContext.user.email &&
+                    //     props.rowEdit === "Yes")
+                    // }
+
                     // Disable if PO Date is already set
                     disabledDate={(current) => {
                       return current && current > moment().endOf("day");
@@ -3850,15 +5016,29 @@ const RequestForm = (props: ICmsRebuildProps) => {
                           InvoiceNo: "",
                           InvoiceDate: "",
                           InvoiceTaxAmount: "",
-                          ClaimNo: "",
+                          ClaimNo: null,
+                          PrevInvoiceStatus: "",
                           RequestID: "",
                           DocId: "",
                           PendingAmount: "",
                           InvoiceFileID: "",
+                          invoiceApprovalChecked: false, // Initialize here
                         },
                       ]);
                     }}
-                    disabled={isDisabled}
+                    // disabled={isDisabled}
+                    disabled={
+                      props.rowEdit === "Yes"
+                        ? !(
+                            props.selectedRow?.employeeEmail ===
+                              currentUserEmail &&
+                            props.selectedRow?.selectedSections
+                              ?.toLowerCase()
+                              .includes("po") &&
+                            props.selectedRow?.approverStatus === "Approved"
+                          )
+                        : false
+                    }
                   />
 
                   {errors.poAmount && (
@@ -3937,11 +5117,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
                               InvoiceNo: "",
                               InvoiceDate: "",
                               InvoiceTaxAmount: "",
-                              ClaimNo: "",
+                              ClaimNo: null,
+                              PrevInvoiceStatus: "",
                               RequestID: "",
                               DocId: "",
                               PendingAmount: "",
                               InvoiceFileID: "",
+                              invoiceApprovalChecked: false, // Initialize here
                             },
                           ]);
                         }}
@@ -3998,11 +5180,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
                               InvoiceNo: "",
                               InvoiceDate: "",
                               InvoiceTaxAmount: "",
-                              ClaimNo: "",
+                              ClaimNo: null,
+                              PrevInvoiceStatus: "",
                               RequestID: "",
                               DocId: "",
                               PendingAmount: "",
                               InvoiceFileID: "",
+                              invoiceApprovalChecked: false, // Initialize here
                             },
                           ]);
                         }}
@@ -4087,11 +5271,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
                               InvoiceNo: "",
                               InvoiceDate: "",
                               InvoiceTaxAmount: "",
-                              ClaimNo: "",
+                              ClaimNo: null,
+                              PrevInvoiceStatus: "",
                               RequestID: "",
                               DocId: "",
                               PendingAmount: "",
                               InvoiceFileID: "",
+                              invoiceApprovalChecked: false, // Initialize here
                             },
                           ]);
                           // Do NOT call handleInvoiceCriteriaChange(e) here
@@ -4255,6 +5441,8 @@ const RequestForm = (props: ICmsRebuildProps) => {
                         value={formData.poComment}
                         // disabled={poUploadedAttachmentFiles.length > 0 || (isDisabled && props.selectedRow.poNo && props.rowEdit === "Yes") || (props.selectedRow?.employeeEmail !== props.context.pageContext.user.email)}
 
+                        // disabled={
+                        // poUploadedAttachmentUploadedFiles.length > 0 ||
                         disabled={
                           poUploadedAttachmentFiles.length > 0 ||
                           requestClosed === "Yes" ||
@@ -4340,7 +5528,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                               <th scope="col">S.No</th>
                               <th scope="col">Document Name</th>{" "}
                               {/* FileLeafRef */}
-                              {/* <th scope="col">Attachment Type</th> */}
+                              <th scope="col">Attachment Type</th>
                               <th scope="col">Comment</th>
                               <th scope="col">Action</th>
                             </tr>
@@ -4352,7 +5540,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                                 <tr key={file.Id}>
                                   <td>{index + 1}</td>
                                   <td>{file.FileLeafRef}</td>
-                                  {/* <td>{file.AttachmentType}</td> */}
+                                  <td>{file.AttachmentType}</td>
                                   <td>{file.Comment}</td>
                                   <td>
                                     <button
@@ -4403,12 +5591,411 @@ const RequestForm = (props: ICmsRebuildProps) => {
                       </div>
                     </div>
                   ) : (
-                    <div className="" role="" />
+                    // <div className="alert alert-info mt-2">No Attachment</div>
+                    (requestClosed === "Yes" || isUserInAdminM) && (
+                      <div className="alert alert-info mt-2">No Attachment</div>
+                    )
                   )}
+
+                  {/* } */}
                 </div>
               </div>
             </div>
           </div>
+
+          {props.rowEdit === "Yes" && (
+            <div className="mt-4">
+              <div className="mt-4">
+                <div
+                  className="d-flex align-items-center justify-content-between sectionheader"
+                  onClick={() => setShowBGDetails((prev) => !prev)}
+                  aria-expanded={showBGDetails}
+                  aria-controls="bgDetailsCollapse"
+                >
+                  <h5 className="m-2 fw-bold headingColor">BG Details</h5>
+                  <button
+                    type="button"
+                    className="btn btn-link"
+                    onClick={() => setShowBGDetails((prev) => !prev)}
+                    aria-expanded={showBGDetails}
+                    aria-controls="bgDetailsCollapse"
+                    style={{ textDecoration: "none", color: "#ffffff" }}
+                  >
+                    {showBGDetails ? (
+                      <FontAwesomeIcon
+                        icon={faAngleUp}
+                        onClick={() => setShowBGDetails((prev) => !prev)}
+                        aria-expanded={showBGDetails}
+                        aria-controls="bgDetailsCollapse"
+                      />
+                    ) : (
+                      <FontAwesomeIcon
+                        icon={faAngleDown}
+                        onClick={() => setShowBGDetails((prev) => !prev)}
+                        aria-expanded={showBGDetails}
+                        aria-controls="bgDetailsCollapse"
+                      />
+                    )}
+                  </button>
+                </div>
+                <div
+                  className={`${
+                    showBGDetails ? "collapse show" : "collapse"
+                  } sectioncontent`}
+                  id="bgDetailsCollapse"
+                >
+                  {/* BG Details Section - Only show BG End Date and Upload if NOT admin */}
+                  {requestClosed !== "Yes" &&
+                  !isUserInAdminM &&
+                  props.rowEdit === "Yes" &&
+                  (props.selectedRow?.employeeEmail ===
+                    props.context.pageContext.user.email ||
+                    isUserInGroupM) ? (
+                    <div className="row mb-3">
+                      <div className="col-md-3">
+                        <label htmlFor="bgEndDate" className="form-label">
+                          BG End Date<span style={{ color: "red" }}>*</span>
+                        </label>
+
+                        <DatePicker
+                          className={`form-control ${
+                            errors.bgEndDate ? "is-invalid" : ""
+                          }`}
+                          name="bgEndDate"
+                          format="DD-MM-YYYY"
+                          value={
+                            formData.bgEndDate
+                              ? moment(formData.bgEndDate, "DD-MM-YYYY")
+                              : null
+                          }
+                          onChange={(date) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              bgEndDate: date ? date.format("DD-MM-YYYY") : "",
+                            }));
+                          }}
+                          // disabled={isDisabled}
+                          disabled={isUserInAdminM || requestClosed === "Yes"}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label htmlFor="fileInput" className="form-label">
+                          Upload File<span style={{ color: "red" }}>*</span>
+                        </label>
+                        <div className="input-group">
+                          <input
+                            type="file"
+                            className="form-control"
+                            id="fileInput"
+                            ref={bgFileInputRef}
+                            onChange={UploadBgFileChange}
+                            disabled={isUserInAdminM || requestClosed === "Yes"}
+                            // disabled={isUserInAdminM  || (props.selectedRow && props.selectedRow.isPaymentReceived === "Yes")}
+                          />
+                          <button
+                            className="btn btn-success"
+                            onClick={UploadBgFile}
+                            disabled={isUserInAdminM || requestClosed === "Yes"}
+                          >
+                            {/* Upload */}
+                            <FontAwesomeIcon icon={faUpload} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="row mt-4">
+                    {uploadedBGFiles.length > 0 ? (
+                      <div className="card-body p-0">
+                        <table className="table table-striped table-bordered mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th scope="col">S.No</th>
+                              {/* <th>FileID</th>
+                                                    <th>DocID</th> */}
+                              <th scope="col">Document Name</th>
+                              <th scope="col">BG Relased Date</th>
+                              <th scope="col">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {uploadedBGFiles.map((file, index) => (
+                              <tr key={file.Id}>
+                                <td>{index + 1}</td>
+                                {/* <td>{file.FileID}</td>
+                                                            <td>{file.DocID}</td> */}
+
+                                <td>{file.FileLeafRef}</td>
+                                <td>
+                                  {console.log(
+                                    "BGReleaseDate:",
+                                    file.BGDate,
+                                    "Formatted:",
+                                    formatDateForTable(file.BGDate)
+                                  )}
+                                  {formatDateForTable(file.BGDate)}
+                                </td>
+                                <td>
+                                  {(() => {
+                                    return (
+                                      <button
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={(e) => {
+                                          const viewUrl = getViewUrl(file);
+                                          handleViewBGFile(
+                                            e,
+                                            viewUrl,
+                                            file.FileLeafRef
+                                          );
+                                        }}
+                                      >
+                                        {/* View */}
+                                        <FontAwesomeIcon icon={faEye} />
+                                      </button>
+                                    );
+                                  })()}
+
+                                  <button
+                                    className="btn btn-sm btn-outline-success ms-2"
+                                    onClick={(e) =>
+                                      handleBgDownload(e, file.EncodedAbsUrl)
+                                    }
+                                  >
+                                    <FontAwesomeIcon icon={faFileArrowDown} />
+                                  </button>
+
+                                  <button
+                                    className="btn btn-sm btn-outline-warning ms-2"
+                                    onClick={(e) => handleEditClick(e, file)}
+                                    // disabled={
+                                    //   isUserInAdminM || requestClosed === "Yes"
+                                    // }
+                                    // disabled={
+                                    //   requestClosed === "Yes"
+                                    // }
+                                  >
+                                    {" "}
+                                    {/* Edit */}
+                                    <FontAwesomeIcon icon={faPenToSquare} />
+                                  </button>
+                                  {file.UserEmail === currentUserEmail && (
+                                    <button
+                                      className="btn btn-sm btn-outline-danger ms-2"
+                                      onClick={(e) =>
+                                        handleDeleteBGFile(e, file)
+                                      }
+                                      disabled={
+                                        isUserInAdminM ||
+                                        requestClosed === "Yes"
+                                      }
+                                    >
+                                      {/* Delete */}
+                                      <FontAwesomeIcon icon={faTrash} />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      (requestClosed !== "No" || isUserInAdminM) && (
+                        <div className="alert alert-info mt-2">
+                          No Attachment
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Edit Modal */}
+              <Modal
+                show={showEditBGModal}
+                onHide={handleCloseBGModal}
+                centered
+                dialogClassName="custommodalwidth"
+              >
+                <Modal.Header closeButton>
+                  <Modal.Title>Edit BG Details</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                  {isLoading && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: "rgba(255,255,255,0.7)",
+                        zIndex: 200000, // higher than modal content
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Spinner animation="border" variant="primary" />
+                      <span className="ms-3">Processing...</span>
+                    </div>
+                  )}
+
+                  <div className="mb-3">
+                    <label className="form-label">Is BG Release</label>
+                    <div>
+                      <div className="form-check form-check-inline">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="isBGRelease"
+                          value="No"
+                          id="isBGReleaseNo"
+                          checked={isBGRelease === "No"}
+                          onChange={handleBGReleaseChange}
+                          disabled={
+                            RelasedBGFiles.length > 0 ||
+                            requestClosed === "Yes" ||
+                            isUserInAdminM
+                          }
+                        />
+                        <label
+                          className="form-check-label"
+                          htmlFor="isBGReleaseNo"
+                        >
+                          No
+                        </label>
+                      </div>
+                      <div className="form-check form-check-inline">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="isBGRelease"
+                          value="Yes"
+                          id="isBGReleaseYes"
+                          checked={isBGRelease === "Yes"}
+                          onChange={handleBGReleaseChange}
+                          disabled={
+                            RelasedBGFiles.length > 0 ||
+                            requestClosed === "Yes" ||
+                            isUserInAdminM
+                          }
+                        />
+                        <label
+                          className="form-check-label"
+                          htmlFor="isBGReleaseYes"
+                        >
+                          Yes
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Show table ONLY if data exists */}
+                  {RelasedBGFiles.length > 0 && (
+                    <div className="mt-4">
+                      <table className="table table-bordered">
+                        <thead>
+                          <tr>
+                            <th>S.No</th>
+                            {/* <th>FileID</th>
+                                                    <th>DocID</th> */}
+                            <th>Document Name</th>
+                            <th>BG Relased Date</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {RelasedBGFiles.map((file, index) => (
+                            <tr key={file.Id}>
+                              <td>{index + 1}</td>
+                              {/* <td>{file.FileID}</td>
+                                                            <td>{file.DocID}</td> */}
+
+                              <td>{file.FileLeafRef}</td>
+                              <td>{formatDateForTable(file.BGReleaseDate)}</td>
+                              <td>
+                                {(() => {
+                                  return (
+                                    <button
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={(e) => {
+                                        const viewUrl = getViewUrl(file);
+                                        handleViewBGFile(
+                                          e,
+                                          viewUrl,
+                                          file.FileLeafRef
+                                        );
+                                      }}
+                                    >
+                                      {/* View */}
+                                      <FontAwesomeIcon icon={faEye} />
+                                    </button>
+                                  );
+                                })()}
+
+                                <button
+                                  className="btn btn-sm btn-outline-success ms-2"
+                                  onClick={(e) =>
+                                    handleBgDownload(e, file.EncodedAbsUrl)
+                                  }
+                                >
+                                  {/* Download */}
+                                  <FontAwesomeIcon icon={faFileArrowDown} />
+                                </button>
+                                {file.UserEmail === currentUserEmail && (
+                                  <button
+                                    className="btn btn-sm btn-outline-danger ms-2"
+                                    onClick={(e) =>
+                                      handleDeleteReleasedBGFile(e, file)
+                                    }
+                                    disabled={
+                                      isUserInAdminM || requestClosed === "Yes"
+                                    }
+                                  >
+                                    {/* Delete */}
+                                    <FontAwesomeIcon icon={faTrash} />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {isBGRelease === "Yes" && RelasedBGFiles.length === 0 && (
+                    <div className="mb-3">
+                      <label className="form-label">Upload File</label>
+                      <div className="input-group">
+                        <input
+                          type="file"
+                          className="form-control"
+                          onChange={UploadBgRelaseFile}
+                          // disabled={isUserInAdminM  || (props.selectedRow && props.selectedRow.isPaymentReceived === "Yes")}
+                          disabled={isUserInAdminM || requestClosed === "Yes"}
+                        />
+                        <button
+                          className="btn btn-success"
+                          onClick={handleBGRelaseFileUpload}
+                          disabled={isUserInAdminM || requestClosed === "Yes"}
+                        >
+                          {/* Upload */}
+                          <FontAwesomeIcon icon={faUpload} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button variant="danger" onClick={handleCloseBGModal}>
+                    Close
+                  </Button>
+                </Modal.Footer>
+              </Modal>
+            </div>
+          )}
 
           <div className="mt-4">
             <div
@@ -4597,7 +6184,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                     </div>
                   ) : (
                     // <div className="alert alert-info mt-2">No Attachment</div>
-                    (requestClosed === "Yes" || isUserInAdminM) && (
+                    (requestClosed !== "No" || isUserInAdminM) && (
                       <div className="alert alert-info mt-2">No Attachment</div>
                     )
                   )}
@@ -4607,403 +6194,6 @@ const RequestForm = (props: ICmsRebuildProps) => {
               </div>
             </div>
           </div>
-          {/* )} */}
-
-          {props.rowEdit === "Yes" && (
-            <div className="mt-4">
-              <div className="mt-4">
-                <div
-                  className="d-flex align-items-center justify-content-between sectionheader"
-                  onClick={() => setShowBGDetails((prev) => !prev)}
-                  aria-expanded={showBGDetails}
-                  aria-controls="bgDetailsCollapse"
-                >
-                  <h5 className="m-2 fw-bold headingColor">BG Details</h5>
-                  <button
-                    type="button"
-                    className="btn btn-link"
-                    onClick={() => setShowBGDetails((prev) => !prev)}
-                    aria-expanded={showBGDetails}
-                    aria-controls="bgDetailsCollapse"
-                    style={{ textDecoration: "none", color: "#ffffff" }}
-                  >
-                    {showBGDetails ? (
-                      <FontAwesomeIcon
-                        icon={faAngleUp}
-                        onClick={() => setShowBGDetails((prev) => !prev)}
-                        aria-expanded={showBGDetails}
-                        aria-controls="bgDetailsCollapse"
-                      />
-                    ) : (
-                      <FontAwesomeIcon
-                        icon={faAngleDown}
-                        onClick={() => setShowBGDetails((prev) => !prev)}
-                        aria-expanded={showBGDetails}
-                        aria-controls="bgDetailsCollapse"
-                      />
-                    )}
-                  </button>
-                </div>
-                <div
-                  className={`${
-                    showBGDetails ? "collapse show" : "collapse"
-                  } sectioncontent`}
-                  id="bgDetailsCollapse"
-                >
-                  {/* BG Details Section - Only show BG End Date and Upload if NOT admin */}
-                  {requestClosed !== "Yes" &&
-                  !isUserInAdminM &&
-                  props.rowEdit === "Yes" &&
-                  (props.selectedRow?.employeeEmail ===
-                    props.context.pageContext.user.email ||
-                    isUserInGroupM) ? (
-                    <div className="row mb-3">
-                      <div className="col-md-3">
-                        <label htmlFor="bgEndDate" className="form-label">
-                          BG End Date<span style={{ color: "red" }}>*</span>
-                        </label>
-
-                        <DatePicker
-                          className={`form-control ${
-                            errors.bgEndDate ? "is-invalid" : ""
-                          }`}
-                          name="bgEndDate"
-                          format="DD-MM-YYYY"
-                          value={
-                            formData.bgEndDate
-                              ? moment(formData.bgEndDate, "DD-MM-YYYY")
-                              : null
-                          }
-                          onChange={(date) => {
-                            setFormData((prev) => ({
-                              ...prev,
-                              bgEndDate: date ? date.format("DD-MM-YYYY") : "",
-                            }));
-                          }}
-                          // disabled={isDisabled}
-                          disabled={isUserInAdminM || requestClosed === "Yes"}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <label htmlFor="fileInput" className="form-label">
-                          Upload File<span style={{ color: "red" }}>*</span>
-                        </label>
-                        <div className="input-group">
-                          <input
-                            type="file"
-                            className="form-control"
-                            id="fileInput"
-                            ref={bgFileInputRef}
-                            onChange={UploadBgFileChange}
-                            disabled={isUserInAdminM || requestClosed === "Yes"}
-                            // disabled={isUserInAdminM  || (props.selectedRow && props.selectedRow.isPaymentReceived === "Yes")}
-                          />
-                          <button
-                            className="btn btn-success"
-                            onClick={UploadBgFile}
-                            disabled={isUserInAdminM || requestClosed === "Yes"}
-                          >
-                            {/* Upload */}
-                            <FontAwesomeIcon icon={faUpload} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="row mt-4">
-                    {uploadedBGFiles.length > 0 ? (
-                      <div className="card-body p-0">
-                        <table className="table table-striped table-bordered mb-0">
-                          <thead className="table-light">
-                            <tr>
-                              <th>S.No</th>
-                              {/* <th>FileID</th>
-                                                    <th>DocID</th> */}
-                              <th>Document Name</th>
-                              <th>BG Relased Date</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {uploadedBGFiles.map((file, index) => (
-                              <tr key={file.Id}>
-                                <td>{index + 1}</td>
-                                {/* <td>{file.FileID}</td>
-                                                            <td>{file.DocID}</td> */}
-
-                                <td>{file.FileLeafRef}</td>
-                                <td>
-                                  {console.log(
-                                    "BGReleaseDate:",
-                                    file.BGDate,
-                                    "Formatted:",
-                                    formatDateForTable(file.BGDate)
-                                  )}
-                                  {formatDateForTable(file.BGDate)}
-                                </td>
-                                <td>
-                                  {(() => {
-                                    return (
-                                      <button
-                                        className="btn btn-sm btn-outline-primary"
-                                        onClick={(e) => {
-                                          const viewUrl = getViewUrl(file);
-                                          handleViewBGFile(
-                                            e,
-                                            viewUrl,
-                                            file.FileLeafRef
-                                          );
-                                        }}
-                                      >
-                                        {/* View */}
-                                        <FontAwesomeIcon icon={faEye} />
-                                      </button>
-                                    );
-                                  })()}
-
-                                  <button
-                                    className="btn btn-sm btn-outline-success ms-2"
-                                    onClick={(e) =>
-                                      handleBgDownload(e, file.EncodedAbsUrl)
-                                    }
-                                  >
-                                    <FontAwesomeIcon icon={faFileArrowDown} />
-                                  </button>
-
-                                  <button
-                                    className="btn btn-sm btn-outline-warning ms-2"
-                                    onClick={(e) => handleEditClick(e, file)}
-                                    // disabled={
-                                    //   isUserInAdminM || requestClosed === "Yes"
-                                    // }
-                                    // disabled={
-                                    //   requestClosed === "Yes"
-                                    // }
-                                  >
-                                    {" "}
-                                    {/* Edit */}
-                                    <FontAwesomeIcon icon={faPenToSquare} />
-                                  </button>
-                                  {file.UserEmail === currentUserEmail &&
-                                    requestClosed !== "Yes" && (
-                                      <>
-                                        <button
-                                          className="btn btn-sm btn-outline-danger ms-2"
-                                          onClick={(e) =>
-                                            handleDeleteBGFile(e, file)
-                                          }
-                                          disabled={
-                                            isUserInAdminM ||
-                                            requestClosed === "Yes"
-                                          }
-                                        >
-                                          {/* Delete */}
-                                          <FontAwesomeIcon icon={faTrash} />
-                                        </button>
-                                      </>
-                                    )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      (requestClosed !== "No" || isUserInAdminM) && (
-                        <div className="alert alert-info mt-2">
-                          No Attachment
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Edit Modal */}
-              <Modal
-                show={showEditBGModal}
-                onHide={handleCloseBGModal}
-                centered
-                dialogClassName="custommodalwidth"
-              >
-                <Modal.Header closeButton>
-                  <Modal.Title>Edit BG Details</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                  {isLoading && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: "rgba(255,255,255,0.7)",
-                        zIndex: 200000, // higher than modal content
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Spinner animation="border" variant="primary" />
-                      <span className="ms-3">Processing...</span>
-                    </div>
-                  )}
-
-                  <div className="mb-3">
-                    <label className="form-label">Is BG Release</label>
-                    <div>
-                      <div className="form-check form-check-inline">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="isBGRelease"
-                          value="No"
-                          id="isBGReleaseNo"
-                          checked={isBGRelease === "No"}
-                          onChange={handleBGReleaseChange}
-                          disabled={
-                            RelasedBGFiles.length > 0 ||
-                            requestClosed === "Yes" ||
-                            isUserInAdminM
-                          }
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor="isBGReleaseNo"
-                        >
-                          No
-                        </label>
-                      </div>
-                      <div className="form-check form-check-inline">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="isBGRelease"
-                          value="Yes"
-                          id="isBGReleaseYes"
-                          checked={isBGRelease === "Yes"}
-                          onChange={handleBGReleaseChange}
-                          disabled={
-                            RelasedBGFiles.length > 0 ||
-                            requestClosed === "Yes" ||
-                            isUserInAdminM
-                          }
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor="isBGReleaseYes"
-                        >
-                          Yes
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Show table ONLY if data exists */}
-                  {RelasedBGFiles.length > 0 && (
-                    <div className="mt-4">
-                      <table className="table table-bordered">
-                        <thead>
-                          <tr>
-                            <th>S.No</th>
-                            {/* <th>FileID</th>
-                                                                                                           <th>DocID</th> */}
-                            <th>Document Name</th>
-                            <th>BG Relased Date</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {RelasedBGFiles.map((file, index) => (
-                            <tr key={file.Id}>
-                              <td>{index + 1}</td>
-                              {/* <td>{file.FileID}</td>
-                                                            <td>{file.DocID}</td> */}
-                              <td>{file.FileLeafRef}</td>
-                              <td>{formatDateForTable(file.BGReleaseDate)}</td>
-                              <td>
-                                {(() => {
-                                  return (
-                                    <button
-                                      className="btn btn-sm btn-outline-primary"
-                                      onClick={(e) => {
-                                        const viewUrl = getViewUrl(file);
-                                        handleViewBGFile(
-                                          e,
-                                          viewUrl,
-                                          file.FileLeafRef
-                                        );
-                                      }}
-                                    >
-                                      {/* View */}
-                                      <FontAwesomeIcon icon={faEye} />
-                                    </button>
-                                  );
-                                })()}
-
-                                <button
-                                  className="btn btn-sm btn-outline-success ms-2"
-                                  onClick={(e) =>
-                                    handleBgDownload(e, file.EncodedAbsUrl)
-                                  }
-                                >
-                                  {/* Download */}
-                                  <FontAwesomeIcon icon={faFileArrowDown} />
-                                </button>
-                                {file.UserEmail === currentUserEmail && (
-                                  <button
-                                    className="btn btn-sm btn-outline-danger ms-2"
-                                    onClick={(e) =>
-                                      handleDeleteReleasedBGFile(e, file)
-                                    }
-                                    disabled={
-                                      isUserInAdminM || requestClosed === "Yes"
-                                    }
-                                  >
-                                    {/* Delete */}
-                                    <FontAwesomeIcon icon={faTrash} />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {isBGRelease === "Yes" && RelasedBGFiles.length === 0 && (
-                    <div className="mb-3">
-                      <label className="form-label">Upload File</label>
-                      <div className="input-group">
-                        <input
-                          type="file"
-                          className="form-control"
-                          onChange={UploadBgRelaseFile}
-                          // disabled={isUserInAdminM  || (props.selectedRow && props.selectedRow.isPaymentReceived === "Yes")}
-                          disabled={isUserInAdminM || requestClosed === "Yes"}
-                        />
-                        <button
-                          className="btn btn-success"
-                          onClick={handleBGRelaseFileUpload}
-                          disabled={isUserInAdminM || requestClosed === "Yes"}
-                        >
-                          {/* Upload */}
-                          <FontAwesomeIcon icon={faUpload} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </Modal.Body>
-                <Modal.Footer>
-                  <Button variant="danger" onClick={handleCloseBGModal}>
-                    Close
-                  </Button>
-                </Modal.Footer>
-              </Modal>
-            </div>
-          )}
 
           {formData.productServiceType?.toLowerCase() === "azure" ? (
             <AzureSection
@@ -5030,10 +6220,13 @@ const RequestForm = (props: ICmsRebuildProps) => {
             <RequesterInvoiceSection
               userGroups={props.userGroups}
               // invoiceRows={invoiceRows}
-              invoiceRows={
-                props.rowEdit === "Yes" ? editInvoiceRows : invoiceRows
+              invoiceRows={props.rowEdit === "Yes" ? invoiceRows : invoiceRows}
+              // invoiceRows={props.rowEdit === "Yes" ? invoiceRows : invoiceRows}
+              setInvoiceRows={
+                setInvoiceRows as unknown as React.Dispatch<
+                  React.SetStateAction<any[]>
+                >
               }
-              setInvoiceRows={setInvoiceRows}
               handleInvoiceChange={handleInvoiceChange}
               addInvoiceRow={addInvoiceRow}
               totalPoAmount={Number(formData.poAmount) || 0}
@@ -5057,16 +6250,617 @@ const RequestForm = (props: ICmsRebuildProps) => {
               }
               selectedRowDetails={props.selectedRow}
               props={props} // Pass props to RequesterInvoiceSection
+              invoiceApprovalChecked={approvalChecks.invoice}
+              setInvoiceApprovalChecked={(v: React.SetStateAction<boolean>) => {
+                if (typeof v === "function") {
+                  // v is (prev: boolean) => boolean; apply it to current invoice value
+                  setApprovalChecks((prev) => ({
+                    ...prev,
+                    invoice: (v as (prev: boolean) => boolean)(prev.invoice),
+                  }));
+                } else {
+                  // v is a boolean
+                  setApprovalChecks((prev) => ({ ...prev, invoice: v }));
+                }
+              }}
+              setDeletedInvoiceItemIDs={setDeletedInvoiceItemIDs}
             />
           )}
 
-          {/* <FinaceInvoiceSection
-                        finaceInvoiceRows={finaceInvoiceRows}
-                        setFinanceInvoiceRows={setFinaceInvoiceRows}
-                        handleFinanceInvoiceChange={handleFinanceInvoiceChange}
-                        totalPoAmount={totalPoAmount}
-                        errors={errors}
-                    />                     */}
+          {/* -------------------- Operational Edit Requests Section Start-------------------- */}
+          {props.rowEdit === "Yes" && props.selectedRow?.approverStatus ? (
+            <div className="mt-4">
+              <div
+                className="d-flex align-items-center justify-content-between sectionheader"
+                onClick={() => {
+                  setShowOperationalEdits((prev) => !prev);
+                  if (!showOperationalEdits) {
+                    fetchOperationalEdits(props.selectedRow?.id);
+                  }
+                }}
+                aria-expanded={showOperationalEdits}
+                aria-controls="operationalEditsCollapse"
+              >
+                <h5 className="fw-bold headingColor">
+                  Operational Edit Requests
+                </h5>
+                <button
+                  type="button"
+                  className="btn btn-link"
+                  onClick={() => setShowOperationalEdits((prev) => !prev)}
+                  aria-expanded={showOperationalEdits}
+                  aria-controls="operationalEditsCollapse"
+                  style={{ textDecoration: "none", color: "#ffffff" }}
+                >
+                  {showOperationalEdits ? (
+                    <FontAwesomeIcon icon={faAngleUp} />
+                  ) : (
+                    <FontAwesomeIcon icon={faAngleDown} />
+                  )}
+                </button>
+              </div>
+
+              <div
+                className={`${
+                  showOperationalEdits ? "collapse show" : "collapse"
+                } sectioncontent`}
+                id="operationalEditsCollapse"
+              >
+                {loadingOperationalEdits ? (
+                  <div className="text-center my-3">
+                    <Spinner animation="border" size="sm" /> Loading...
+                  </div>
+                ) : (
+                  <>
+                    {/* Current / Old toggles */}
+                    <div className="mb-3 d-flex gap-2">
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${
+                          showCurrentOperational
+                            ? "btn-primary"
+                            : "btn-outline-secondary"
+                        }`}
+                        onClick={() => {
+                          setShowCurrentOperational(true);
+                          setShowOldOperational(false);
+                          fetchOperationalEdits(props.selectedRow?.id);
+                        }}
+                      >
+                        Current Requests
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${
+                          showOldOperational
+                            ? "btn-primary"
+                            : "btn-outline-secondary"
+                        }`}
+                        onClick={() => {
+                          setShowOldOperational(true);
+                          setShowCurrentOperational(false);
+                          fetchOperationalEdits(props.selectedRow?.id);
+                        }}
+                      >
+                        Old Requests
+                      </button>
+                    </div>
+
+                    {/* prepare lists */}
+                    {(() => {
+                      const currentRequests = operationalEdits.filter(
+                        (r: any) => {
+                          const st = (r.Status || "").trim();
+                          return st === "Pending Approval" || st === "Hold";
+                        }
+                      );
+                      const oldRequests = operationalEdits.filter(
+                        (r: any) =>
+                          (r.Status || "").trim() !== "Pending Approval"
+                      );
+
+                      const isProjectManager =
+                        (currentUserEmail || "").toLowerCase() ===
+                        (
+                          props.selectedRow?.projectMangerEmail || ""
+                        ).toLowerCase();
+                      const isEmployee =
+                        (currentUserEmail || "").toLowerCase() ===
+                        (props.selectedRow?.employeeEmail || "").toLowerCase();
+
+                      const renderRows = (
+                        rows: any[],
+                        showActions: boolean
+                      ) => (
+                        <div className="table-responsive card">
+                          <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                            <table className="table table-hover mb-0">
+                              <thead
+                                className="table-light"
+                                style={{
+                                  position: "sticky",
+                                  top: 0,
+                                  zIndex: 2,
+                                }}
+                              >
+                                <tr>
+                                  <th style={{ width: 40 }}>#</th>
+                                  <th>Reason</th>
+                                  <th>Selected Sections</th>
+                                  <th style={{ width: 180 }}>User</th>
+                                  <th style={{ width: 120 }}>Status</th>
+                                  {showActions && (
+                                    <th
+                                      className="text-center"
+                                      style={{ width: 220 }}
+                                    >
+                                      Actions
+                                    </th>
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((row: any, idx: number) => (
+                                  <tr key={row.Id || idx}>
+                                    <td style={{ verticalAlign: "middle" }}>
+                                      {idx + 1}
+                                    </td>
+                                    <td
+                                      style={{
+                                        maxWidth: 240,
+                                        wordBreak: "break-word",
+                                      }}
+                                    >
+                                      {row.Reason || "-"}
+                                    </td>
+                                    <td>
+                                      {(row.SelectedSections || "")
+                                        .split(",")
+                                        .map((s: string, i: number) => {
+                                          const txt = s.trim();
+                                          const badgeClass = txt
+                                            .toLowerCase()
+                                            .includes("client")
+                                            ? "bg-primary"
+                                            : txt.toLowerCase().includes("po")
+                                            ? "bg-warning text-dark"
+                                            : txt
+                                                .toLowerCase()
+                                                .includes("invoice")
+                                            ? "bg-success"
+                                            : "bg-secondary";
+                                          return (
+                                            <span
+                                              key={i}
+                                              className={`badge ${badgeClass} me-1`}
+                                              style={{ fontSize: 12 }}
+                                            >
+                                              {txt || "-"}
+                                            </span>
+                                          );
+                                        })}
+                                    </td>
+                                    <td>{row.UserName || "-"}</td>
+                                    <td>
+                                      <span
+                                        className={`badge ${
+                                          row.Status === "Pending Approval"
+                                            ? "bg-info"
+                                            : row.Status === "Approved"
+                                            ? "bg-success"
+                                            : row.Status === "Rejected"
+                                            ? "bg-danger"
+                                            : "bg-secondary"
+                                        }`}
+                                      >
+                                        {row.Status || "N/A"}
+                                      </span>
+                                    </td>
+
+                                    {showActions && (
+                                      <td className="text-center">
+                                        <div
+                                          className="btn-group btn-group-sm"
+                                          role="group"
+                                        >
+                                          {/* Approve/Hold/Reject only visible to Project Manager */}
+                                          {requestClosed !== "Yes" &&
+                                            isProjectManager &&
+                                            (row.Status ===
+                                              "Pending Approval" ||
+                                              row.Status === "Hold") && (
+                                              <>
+                                                <button
+                                                  className="btn btn-success"
+                                                  onClick={async () => {
+                                                    if (!row.Id) return;
+                                                    try {
+                                                      setIsLoading(true);
+
+                                                      // Initialize EditRequestData with default values
+                                                      let EditRequestData: Record<
+                                                        string,
+                                                        any
+                                                      > = {
+                                                        RunWF: "Yes",
+                                                        Status: "Approved",
+                                                      };
+
+                                                      console.log(
+                                                        "Approving Row----",
+                                                        row
+                                                      );
+
+                                                      // Handle PO Section
+                                                      if (
+                                                        row?.SelectedSections?.includes(
+                                                          "po"
+                                                        )
+                                                      ) {
+                                                        EditRequestData = {
+                                                          ...EditRequestData,
+                                                          PoNo: formData.poNo,
+                                                          PoDate:
+                                                            formData.poDate
+                                                              ? moment(
+                                                                  formData.poDate,
+                                                                  "DD-MM-YYYY"
+                                                                ).format(
+                                                                  "YYYY-MM-DD"
+                                                                )
+                                                              : null,
+                                                          POAmount: Number(
+                                                            formData.poAmount
+                                                          ),
+                                                          BgDate:
+                                                            formData.bgDate
+                                                              ? moment(
+                                                                  formData.bgDate,
+                                                                  "DD-MM-YYYY"
+                                                                ).format(
+                                                                  "YYYY-MM-DD"
+                                                                )
+                                                              : null,
+                                                        };
+                                                      }
+
+                                                      // Handle Client Section
+                                                      if (
+                                                        row?.SelectedSections?.includes(
+                                                          "client"
+                                                        )
+                                                      ) {
+                                                        EditRequestData = {
+                                                          ...EditRequestData,
+                                                          CustomerEmail:
+                                                            formData.customerEmail,
+                                                          Location:
+                                                            formData.location,
+                                                          WorkTitle:
+                                                            formData.workTitle,
+                                                          WorkDetails:
+                                                            formData.workDetail,
+                                                        };
+                                                      }
+
+                                                      // Handle Invoice Section
+                                                      if (
+                                                        row?.SelectedSections?.includes(
+                                                          "invoice"
+                                                        )
+                                                      ) {
+                                                        for (const invoiceRow of invoiceRows) {
+                                                          if (
+                                                            invoiceRow?.InvoiceStatus ===
+                                                            "Pending Approval"
+                                                          ) {
+                                                            const invoiceDetails =
+                                                              {
+                                                                Comments:
+                                                                  invoiceRow.InvoiceDescription,
+                                                                InvoiceAmount:
+                                                                  Number(
+                                                                    invoiceRow.InvoiceAmount
+                                                                  ),
+                                                                InvoiceDueDate:
+                                                                  invoiceRow.InvoiceDueDate
+                                                                    ? moment(
+                                                                        invoiceRow.InvoiceDueDate,
+                                                                        "DD-MM-YYYY"
+                                                                      ).format(
+                                                                        "YYYY-MM-DD"
+                                                                      )
+                                                                    : null,
+                                                                RequestID:
+                                                                  invoiceRow.RequestID,
+                                                                ClaimNo:
+                                                                  invoiceRow?.ClaimNo ||
+                                                                  "",
+                                                                DocId:
+                                                                  invoiceRow?.DocId ||
+                                                                  "",
+
+                                                                InvoiceDate:
+                                                                  invoiceRow.InvoiceDate
+                                                                    ? moment(
+                                                                        invoiceRow.InvoiceDate,
+                                                                        "DD-MM-YYYY"
+                                                                      ).format(
+                                                                        "YYYY-MM-DD"
+                                                                      )
+                                                                    : null,
+                                                                InvoiceFileID:
+                                                                  invoiceRow?.InvoiceFileID ||
+                                                                  "",
+                                                                InvoicNo:
+                                                                  invoiceRow?.InvoiceNo ||
+                                                                  "",
+                                                                InvoiceStatus:
+                                                                  invoiceRow?.InvoiceStatus ||
+                                                                  "",
+                                                                InvoiceTaxAmount:
+                                                                  Number(
+                                                                    invoiceRow?.InvoiceTaxAmount
+                                                                  ) || 0,
+                                                                PendingAmount:
+                                                                  Number(
+                                                                    invoiceRow?.PendingAmount
+                                                                  ) || 0,
+                                                                PrevInvoiceStatus:
+                                                                  invoiceRow?.PrevInvoiceStatus ||
+                                                                  "",
+                                                                PoAmount:
+                                                                  Number(
+                                                                    invoiceRow?.RemainingPoAmount
+                                                                  ) || 0,
+                                                                  ContractID : formData.requestId || "",
+                                                                  EditRequestItemID : row.Id || "",
+                                                              };
+
+                                                            // Save invoice details to SharePoint
+                                                            await saveDataToSharePoint(
+                                                              OperationalEditInvoiceHistory,
+                                                              invoiceDetails,
+                                                              siteUrl
+                                                            );
+                                                          }
+                                                        }
+                                                      }
+
+                                                      // Update Operational Edit Request status
+                                                      await updateDataToSharePoint(
+                                                        OperationalEditRequest,
+                                                        EditRequestData,
+                                                        siteUrl,
+                                                        row.Id
+                                                      );
+
+                                                      // Mirror status to Main list
+                                                      if (
+                                                        props.selectedRow?.id
+                                                      ) {
+                                                        await updateDataToSharePoint(
+                                                          MainList,
+                                                          {
+                                                            ApproverStatus:
+                                                              "Approved",
+                                                            RunWF: "Yes",
+                                                          },
+                                                          siteUrl,
+                                                          props.selectedRow.id
+                                                        );
+                                                      }
+
+                                                      // Show success message and refresh data
+                                                      showSnackbar(
+                                                        "Request approved.",
+                                                        "success"
+                                                      );
+                                                      await fetchOperationalEdits(
+                                                        props.selectedRow?.id
+                                                      );
+                                                      await props.refreshCmsDetails?.();
+                                                      await finalizeAction(
+                                                        false
+                                                      );
+                                                    } catch (err) {
+                                                      console.error(
+                                                        "Error approving request:",
+                                                        err
+                                                      );
+                                                      showSnackbar(
+                                                        "Failed to approve request.",
+                                                        "error"
+                                                      );
+                                                    } finally {
+                                                      setIsLoading(false);
+                                                    }
+                                                  }}
+                                                >
+                                                  Approve
+                                                </button>
+
+                                                <button
+                                                  className="btn btn-warning"
+                                                  onClick={async () => {
+                                                    if (!row.Id) return;
+                                                    try {
+                                                      setIsLoading(true);
+                                                      // set OperationalEditRequest -> Hold
+                                                      await updateDataToSharePoint(
+                                                        OperationalEditRequest,
+                                                        { Status: "Hold" },
+                                                        siteUrl,
+                                                        row.Id
+                                                      );
+                                                      // mirror Hold to main list ApproverStatus
+                                                      if (
+                                                        props.selectedRow?.id
+                                                      ) {
+                                                        await updateDataToSharePoint(
+                                                          MainList,
+                                                          {
+                                                            ApproverStatus:
+                                                              "Hold",
+                                                            RunWF: "Yes",
+                                                          },
+                                                          siteUrl,
+                                                          props.selectedRow.id
+                                                        );
+                                                      }
+                                                      showSnackbar(
+                                                        "Request placed on hold.",
+                                                        "info"
+                                                      );
+                                                      await fetchOperationalEdits(
+                                                        props.selectedRow?.id
+                                                      );
+                                                      await props.refreshCmsDetails?.();
+                                                      await finalizeAction(
+                                                        false
+                                                      );
+                                                    } catch (err) {
+                                                      console.error(err);
+                                                      showSnackbar(
+                                                        "Failed to put request on hold.",
+                                                        "error"
+                                                      );
+                                                    } finally {
+                                                      setIsLoading(false);
+                                                    }
+                                                  }}
+                                                >
+                                                  Hold
+                                                </button>
+
+                                                <button
+                                                  className="btn btn-danger"
+                                                  onClick={async () => {
+                                                    if (!row.Id) return;
+                                                    if (
+                                                      !window.confirm(
+                                                        "Reject this edit request?"
+                                                      )
+                                                    )
+                                                      return;
+                                                    try {
+                                                      setIsLoading(true);
+                                                      // mark OperationalEditRequest rejected
+                                                      await updateDataToSharePoint(
+                                                        OperationalEditRequest,
+                                                        { Status: "Rejected" },
+                                                        siteUrl,
+                                                        row.Id
+                                                      );
+                                                      // mirror rejection to main list (use "Reject" to match existing main list values)
+                                                      if (
+                                                        props.selectedRow?.id
+                                                      ) {
+                                                        await updateDataToSharePoint(
+                                                          MainList,
+                                                          {
+                                                            ApproverStatus:
+                                                              "Reject",
+                                                            RunWF: "No",
+                                                          },
+                                                          siteUrl,
+                                                          props.selectedRow.id
+                                                        );
+                                                      }
+                                                      showSnackbar(
+                                                        "Request rejected.",
+                                                        "success"
+                                                      );
+                                                      await fetchOperationalEdits(
+                                                        props.selectedRow?.id
+                                                      );
+                                                      await props.refreshCmsDetails?.();
+                                                      await finalizeAction(
+                                                        false
+                                                      );
+                                                    } catch (err) {
+                                                      console.error(err);
+                                                      showSnackbar(
+                                                        "Failed to reject request.",
+                                                        "error"
+                                                      );
+                                                    } finally {
+                                                      setIsLoading(false);
+                                                    }
+                                                  }}
+                                                >
+                                                  Reject
+                                                </button>
+                                              </>
+                                            )}
+
+                                          {/* Remind button: employee only, but not when same as project manager */}
+                                          {requestClosed !== "Yes" &&
+                                            isEmployee &&
+                                            !isProjectManager &&
+                                            row.Status ===
+                                              "Pending Approval" && (
+                                              <button
+                                                className="btn btn-secondary"
+                                                onClick={(e) => {
+                                                  if (!props.selectedRow?.id)
+                                                    return;
+                                                  handleReminder(
+                                                    e as any,
+                                                    props.selectedRow.id
+                                                  );
+                                                }}
+                                              >
+                                                Remind
+                                              </button>
+                                            )}
+                                        </div>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))}
+                                {rows.length === 0 && (
+                                  <tr>
+                                    <td
+                                      colSpan={showActions ? 6 : 5}
+                                      className="text-center py-3"
+                                    >
+                                      No requests
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+
+                      return (
+                        <>
+                          {showCurrentOperational && (
+                            <div className="mb-3">
+                              <h6 className="mb-2">
+                                Current Requests (Pending Approval)
+                              </h6>
+                              {renderRows(currentRequests, true)}
+                            </div>
+                          )}
+                          {showOldOperational && (
+                            <div className="mb-3">
+                              <h6 className="mb-2">Old Requests</h6>
+                              {renderRows(oldRequests, false)}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
+          {/* -------------------- Operational Edit Requests End -------------------- */}
+
           <div className="row d-flex justify-content-end">
             <div className="col-md-6 d-flex justify-content-end">
               {/* Show Update button if rowEdit is "Yes" and employeeEmail matches currentUserEmail */}
@@ -5106,8 +6900,8 @@ const RequestForm = (props: ICmsRebuildProps) => {
                       </>
                     )}
 
-                  {/* {!props.selectedRow?.poNo && requestClosed !== "Yes" ? ( */}
-                  {requestClosed !== "Yes" ? (
+                  {/* {requestClosed !== "Yes" ? ( */}
+                  {!props.selectedRow?.poNo && requestClosed !== "Yes" ? (
                     <button
                       type="button"
                       className="btn btn-info w-40 mt-3"
@@ -5119,9 +6913,159 @@ const RequestForm = (props: ICmsRebuildProps) => {
                         marginRight: "10px",
                       }}
                     >
-                     <FontAwesomeIcon icon={faFloppyDisk} /> Update
+                      <FontAwesomeIcon icon={faFloppyDisk} /> Update
                     </button>
                   ) : null}
+                  {/* Edit Request Approval button - requires at least one section checkbox checked */}
+                  {props.rowEdit === "Yes" &&
+                    props.selectedRow?.employeeEmail === currentUserEmail &&
+                    requestClosed !== "Yes" &&
+                    !["Approved", "Hold", "Pending From Approver"].includes(
+                      props.selectedRow.approverStatus
+                    ) && (
+                      <button
+                        type="button"
+                        className="btn btn-primary w-40 mt-3"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (
+                            !approvalChecks.client &&
+                            !approvalChecks.po &&
+                            !approvalChecks.invoice
+                          ) {
+                            showSnackbar(
+                              "Please select at least one section (Client & Work / PO / Invoice) to approve the edit.",
+                              "error"
+                            );
+                            return;
+                          }
+                          // reuse existing edit handler
+                          handleEditRequestApproval(e, props.selectedRow.id);
+                        }}
+                        style={{ marginLeft: "10px", marginRight: "10px" }}
+                      >
+                        <FontAwesomeIcon icon={faEdit} /> Edit Request
+                        Approval--
+                      </button>
+                    )}
+
+                  {props.rowEdit === "Yes" &&
+                    props.selectedRow?.employeeEmail === currentUserEmail &&
+                    requestClosed !== "Yes" &&
+                    props.selectedRow.approverStatus === "Approved" && (
+                      <button
+                        type="button"
+                        className="btn btn-primary w-40 mt-3"
+                        // onClick={(e) => {
+                        //   e.preventDefault();
+                        //   if (
+                        //     !approvalChecks.client &&
+                        //     !approvalChecks.po &&
+                        //     !approvalChecks.invoice
+                        //   ) {
+                        //     showSnackbar(
+                        //       "Please select at least one section (Client & Work / PO / Invoice) to approve the edit.",
+                        //       "error"
+                        //     );
+                        //     return;
+                        //   }
+                        //   // reuse existing edit handler
+                        //   handleEditRequestApproval(e, props.selectedRow.id);
+                        // }}
+                        // onClick={handleUpdateEditRequest}
+                        onClick={(e) => handleUpdateEditRequest(e)}
+                        style={{ marginLeft: "10px", marginRight: "10px" }}
+                      >
+                        <FontAwesomeIcon icon={faEdit} /> Update Edit Request
+                        Approval
+                      </button>
+                    )}
+                  <Modal
+                    show={isPopupOpen}
+                    onHide={handleClosePopup}
+                    centered
+                    dialogClassName="custom-modal-width"
+                  >
+                    <Modal.Header closeButton className="custom-modal-header">
+                      <Modal.Title>Edit Request Approval</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        {/* Selected Checkbox Section Name */}
+                        <div>
+                          <label>
+                            <strong>Selected Section:</strong>
+                          </label>
+                          <p>
+                            {/* {approvalChecks.client && "Client & Work Detail"},{" "}
+                            {approvalChecks.po && "PO Details"},{" "}
+                            {approvalChecks.invoice && "Invoice Details"} */}
+
+                            {[
+                              approvalChecks.client && "Client & Work Detail",
+                              approvalChecks.po && "PO Details",
+                              approvalChecks.invoice && "Invoice Details",
+                            ]
+                              .filter(Boolean) // Remove any `false` or `undefined` values
+                              .join(", ")}
+                          </p>
+                        </div>
+
+                        {/* Selected ID */}
+                        <div style={{ display: "none" }}>
+                          <label>
+                            <strong>Selected ID:</strong>
+                          </label>
+                          <p>{selectedId}</p> {/* Display the selected ID */}
+                        </div>
+
+                        {/* Reason Input */}
+                        <div>
+                          <label htmlFor="reason">
+                            <strong>Reason:</strong>
+                          </label>
+                          <textarea
+                            id="reason"
+                            className="form-control"
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder="Enter your reason here..."
+                            rows={4}
+                          />
+                        </div>
+                      </div>
+                    </Modal.Body>
+                    <Modal.Footer>
+                      <Button
+                        variant="success"
+                        // onClick={() => {
+                        //   if (selectedId !== null) {
+                        //     handleSubmitEditRequestApproval(selectedId);
+                        //   } else {
+                        //     alert("No request selected for approval.");
+                        //   }
+                        // }}
+                        onClick={(e) => {
+                          if (selectedId !== null) {
+                            handleSubmitEditRequestApproval(e, selectedId);
+                          } else {
+                            alert("No request selected for approval.");
+                          }
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faPaperPlane} /> Submit
+                      </Button>
+                      <Button variant="danger" onClick={handleClosePopup}>
+                        Close
+                      </Button>
+                    </Modal.Footer>
+                  </Modal>
                   {/* {requestClosed !== "Yes" ? (
                     <>
                       <button
@@ -5159,7 +7103,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                     </>
                   ) : null} */}
 
-                  {(formData.approverStatus === "Completed" ||
+                  {/* {(formData.approverStatus === "Completed" ||
                     formData.approverStatus === "" ||
                     // formData.approverStatus === "Reminder" ||
                     formData.approverStatus === "Reject") &&
@@ -5180,7 +7124,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                       >
                         <FontAwesomeIcon icon={faEdit} /> Edit Request
                       </button>
-                    )}
+                    )} */}
                   {formData.approverStatus === "Approvd" &&
                     requestClosed !== "Yes" &&
                     proceedButtonCount > 0 && (
@@ -5197,7 +7141,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                         <FontAwesomeIcon icon={faEdit} /> Edit the Invoice
                       </a>
                     )}
-                  {(formData.approverStatus === "Hold" ||
+                  {/* {(formData.approverStatus === "Hold" ||
                     formData.approverStatus === "Reminder") &&
                     requestClosed !== "Yes" &&
                     proceedButtonCount > 0 && (
@@ -5208,7 +7152,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                       >
                         Reminder
                       </button>
-                    )}
+                    )} */}
                 </>
               ) : (
                 <>
@@ -5258,7 +7202,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                       azureSectionData && azureSectionData.length > 0
                         ? azureSectionData[azureSectionData.length - 1]
                         : null;
-                    // Only show the submit button when last row exists and does NOT have itemID
+                    // Only show the submit button when last row exists and does NOT have an ItemID
                     if (lastRow && !lastRow.itemID) {
                       return (
                         <>

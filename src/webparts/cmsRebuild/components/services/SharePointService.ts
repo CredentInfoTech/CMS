@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable  @typescript-eslint/explicit-function-return-type */
-
+/* eslint-disable prefer-const */
 import { sp } from "@pnp/sp/presets/all";
 import { SPHttpClient, SPHttpClientResponse } from "@microsoft/sp-http";
 
@@ -25,7 +25,7 @@ export const isUserInGroup = async (groupName: string): Promise<boolean> => {
     await sp.web.currentUser.groups.getByName(groupName)(); // Attempt to retrieve the group
     return true; // If no error, the group exists
   } catch (error) {
-    console.error(
+    console.log(
       `Group "${groupName}" does not exist or user is not a member.`,
       error
     );
@@ -251,11 +251,13 @@ export const addFileInSharepoint = async (
     try {
       await folder.get();
     } catch (error) {
-      if (error.status === 404) {
-        folderExists = false;
-      } else {
-        throw error;
-      }
+      console.log(error);
+      
+      // if (error.status === 404) {
+      //   folderExists = false;
+      // } else {
+      //   throw error;
+      // }
     }
 
     // Create the folder if it doesn't exist
@@ -452,11 +454,13 @@ export const uploadFileWithMetadata = async (
     try {
       await folder.get();
     } catch (error) {
-      if (error.status === 404) {
-        folderExists = false;
-      } else {
-        throw error;
-      }
+      console.log(error);
+      
+      // if (error.status === 404) {
+      //   folderExists = false;
+      // } else {
+      //   throw error;
+      // }
     }
 
     if (!folderExists) {

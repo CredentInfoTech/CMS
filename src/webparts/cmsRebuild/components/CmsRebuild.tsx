@@ -139,6 +139,7 @@ export default class CmsRebuild extends React.Component<
         "DelegateEmployeeEmail",
         "ApproverStatus",
         "ApproverComment",
+        "SelectedSections",
         "GovtContract",
         "CustomerLocation",
         "Currency",
@@ -166,6 +167,7 @@ export default class CmsRebuild extends React.Component<
         "Title",
         "RequestID",
         "ClaimNo",
+        "PrevInvoiceStatus",
         "Comments",
         "InvoiceDueDate",
         "ProceedDate",
@@ -190,14 +192,18 @@ export default class CmsRebuild extends React.Component<
         "RunWF",
         "StartDateResource",
         "EndDateResource",
-       
+
         // "Modified",
         // "Created",
         // "Author",
         // "Modified By",
       ];
 
-      const cmsRequestExpand = ["AccountManger", "ProjectManager" ,"ProjectLead"];
+      const cmsRequestExpand = [
+        "AccountManger",
+        "ProjectManager",
+        "ProjectLead",
+      ];
       // const cmsRequestExpand = [""];
       const cmsRequestDetailsExpand = [""];
 
@@ -217,16 +223,19 @@ export default class CmsRebuild extends React.Component<
       console.log(cmsMainData, "cmsMainData");
       console.log(cmsRequestDetailsData, "cmsMainData,cmsRequestDetailsData");
 
-       const mergedData = cmsMainData.map(mainItem => ({
-      ...mainItem,
-      invoiceDetails: cmsRequestDetailsData.filter(
-        detail => detail.RequestID === mainItem.ID
-      ),
-    }));
+      const mergedData = cmsMainData.map((mainItem) => ({
+        ...mainItem,
+        // invoiceDetails: cmsRequestDetailsData.filter(
+        //   detail => detail.RequestID === mainItem.ID
+        // ),
+        invoiceDetails: cmsRequestDetailsData
+          .filter((detail) => detail.RequestID === mainItem.ID)
+          .sort((a, b) => a.ClaimNo - b.ClaimNo),
+      }));
 
-    this.setState({
-      cmsDetails: mergedData,
-    });
+      this.setState({
+        cmsDetails: mergedData,
+      });
       // this.setState({
       //   cmsDetails: cmsMainData,
       // });
@@ -266,5 +275,3 @@ export default class CmsRebuild extends React.Component<
     );
   }
 }
-
- 

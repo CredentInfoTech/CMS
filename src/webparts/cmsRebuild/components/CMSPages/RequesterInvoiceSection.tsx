@@ -2,6 +2,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @rushstack/no-new-null */
 /* eslint-disable no-void */
+/* eslint-disable @typescript-eslint/no-unused-expressions */
+/* eslint-disable no-unused-expressions*/
+/* eslint-disable  prefer-const */
+/* eslint-disable  react/no-unescaped-entities */
 
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -13,7 +17,7 @@ import {
 } from "../services/SharePointService"; // Adjust the import path as necessary
 import { Modal, Button } from "react-bootstrap"; // Import Bootstrap Modal
 import FinaceInvoiceSection from "./FinaceInvoiceSection";
-import * as moment from "moment";
+import moment from "moment";
 import { DatePicker } from "antd";
 import {
   getDocumentLibraryDataWithSelect,
@@ -41,9 +45,10 @@ interface InvoiceRow {
   InvoiceNo: string;
   InvoiceDate: string;
   InvoiceTaxAmount: string;
-  ClaimNo: string;
+  ClaimNo: number | null; // Updated to accept number | null
   DocId: string;
   InvoiceFileID: string;
+  invoiceApprovalChecked?: boolean; // Add this property
 }
 
 export default function RequesterInvoiceSection({
@@ -69,6 +74,10 @@ export default function RequesterInvoiceSection({
   isCollapsed,
   setIsCollapsed, // Add to props:
   selectedRowDetails,
+  // new props for approval checkbox (optional)
+  invoiceApprovalChecked,
+  setInvoiceApprovalChecked,
+  setDeletedInvoiceItemIDs,
 }: {
   userGroups: any;
   invoiceRows: InvoiceRow[];
@@ -98,6 +107,9 @@ export default function RequesterInvoiceSection({
   isCollapsed: boolean;
   setIsCollapsed: React.Dispatch<React.SetStateAction<boolean>>; // Add to props:
   selectedRowDetails?: any; // Add selectedRowDetails prop if needed
+  invoiceApprovalChecked?: boolean;
+  setInvoiceApprovalChecked?: React.Dispatch<React.SetStateAction<boolean>>;
+  setDeletedInvoiceItemIDs?: React.Dispatch<React.SetStateAction<number[]>>;
 }) {
   const InvoiceList = "CMSRequestDetails";
   const InvoiceHistory = "CMSPaymentHistory";
@@ -109,6 +121,24 @@ export default function RequesterInvoiceSection({
   const [showHistoryModal, setShowHistoryModal] = React.useState(false);
   const [historyLoading, setHistoryLoading] = React.useState(false);
   const [invoiceDocuments, setInvoiceDocuments] = React.useState<any[]>([]);
+  const [showEditInvoiceColumn, setShowEditInvoiceColumn] =
+    React.useState(false); // Add a state to track the visibility of the "Edit Invoice" column
+
+  const [localInvoiceData, setLocalInvoiceData] = React.useState(
+    invoiceRows.map((row) => ({
+      InvoiceDescription: row.InvoiceDescription,
+      InvoiceAmount: row.InvoiceAmount,
+      InvoiceDueDate: row.InvoiceDueDate,
+      RemainingPoAmount: row.RemainingPoAmount,
+    }))
+  );
+  //   const [localInvoiceData, setLocalInvoiceData] = React.useState(
+  //   invoiceRows.map((row) => ({
+  //     InvoiceDescription: row.InvoiceDescription,
+  //     InvoiceAmount: row.InvoiceAmount,
+  //     InvoiceDueDate: row.InvoiceDueDate,
+  //   }))
+  // );
   // const [selectedRows, setSelectedRows] = React.useState<number[]>([]);
 
   // const allSelected =
@@ -132,14 +162,14 @@ export default function RequesterInvoiceSection({
   //   };
   // ...existing imports...
   // Adjust path if needed
-  console.log(userGroups, "userGroupsinvoice12");
+  // console.log(userGroups, "userGroupsinvoice12");
 
   const fetchAllInvoiceDocuments = async (siteUrl: string) => {
     const selectFields = "Id, FileLeafRef, FileRef,EncodedAbsUrl,DocID";
     const libraryName = "InvoiceDocument";
     // const filterQuery = `$top=5000`;
     const filterQuery = `$top=5000`;
-    console.log(siteUrl, "siteUrlinvoice");
+    // console.log(siteUrl, "siteUrlinvoice");
 
     try {
       const response = await getDocumentLibraryDataWithSelect(
@@ -148,7 +178,7 @@ export default function RequesterInvoiceSection({
         selectFields,
         siteUrl
       );
-      console.log("All INVOICE items:", response);
+      // console.log("All INVOICE items:", response);
       return response;
     } catch (error) {
       console.error("Error fetching invoice Document items:", error);
@@ -164,22 +194,152 @@ export default function RequesterInvoiceSection({
     })();
   }, [props.siteUrl]);
 
-  const pendingStatuses = ["Hold", "Open", "Pending From Approver", "Reminder"];
+  // const pendingStatuses = ["Hold", "Open", "Pending From Approver", "Reminder"];
   // const [proceedClicked, setProceedClicked] = React.useState(false);
-  const [proceededRows, setProceededRows] = React.useState<number[]>([]); // store row ids // false by default
-  // Delete row
-  const deleteInvoiceRow = (id: number) => {
+  const [proceededRows, setProceededRows] = React.useState<number[]>([]);
+  // const deleteInvoiceRow = (id: number) => {
+  //   setInvoiceRows(invoiceRows.filter((row) => row.id !== id));
+  // };
+
+   const deleteInvoiceRow = (id: number) => {
+    // find the row about to be deleted
+    const rowToDelete = invoiceRows.find((row) => row.id === id);
+
+    // if in edit mode and row has an existing itemID, push it into parent's deleted IDs array
+    if (props?.rowEdit === "Yes" && rowToDelete?.itemID) {
+      const numericItemId = Number(rowToDelete.itemID);
+      if (!isNaN(numericItemId) && typeof setDeletedInvoiceItemIDs === "function") {
+        setDeletedInvoiceItemIDs((prev) => {
+          // avoid duplicates
+          if (prev.includes(numericItemId)) return prev;
+          return [...prev, numericItemId];
+        });
+      }
+    }
+
+    // remove the row from UI
     setInvoiceRows(invoiceRows.filter((row) => row.id !== id));
   };
+// ...existing code...
+
   // Handle input changes
+  // const handleTextFieldChange = (
+  //   index: number,
+  //   field: keyof InvoiceRow,
+  //   value: string
+  // ) => {
+  //   handleInvoiceChange(index, field, value);
+  // };
+
   const handleTextFieldChange = (
     index: number,
     field: keyof InvoiceRow,
-    value: string
+    value: string | number
   ) => {
-    handleInvoiceChange(index, field, value);
-  };
+    setInvoiceRows((prevRows) => {
+      let updatedRows = [...prevRows];
 
+      // Ensure the row exists before updating
+      if (!updatedRows[index]) {
+        console.error(`Row at index ${index} is undefined.`);
+        return prevRows; // Return the previous state to avoid breaking
+      }
+
+      // Update the specific field in the row
+      updatedRows[index] = { ...updatedRows[index], [field]: value };
+
+      if (field === "InvoiceAmount") {
+        const poAmt = parseFloat(totalPoAmount.toString()) || 0;
+
+        // Recalculate RemainingPoAmount for every row
+        let runningRemaining = poAmt;
+        updatedRows = updatedRows.map((row, idx) => {
+          const invoiceAmount = parseFloat(row.InvoiceAmount) || 0;
+
+          // Update RemainingPoAmount for the current row
+          const updatedRow = {
+            ...row,
+            RemainingPoAmount: runningRemaining.toFixed(2),
+          };
+
+          // Deduct the current row's InvoiceAmount from runningRemaining
+          runningRemaining -= invoiceAmount;
+
+          return updatedRow;
+        });
+
+        // Check if a new row needs to be added
+        const totalInvoiceAmount = updatedRows.reduce(
+          (sum, row) => sum + (parseFloat(row.InvoiceAmount) || 0),
+          0
+        );
+        const remainingAfter = +(poAmt - totalInvoiceAmount).toFixed(2);
+        const lastRow = updatedRows[updatedRows.length - 1];
+        const lastRowHasValue =
+          lastRow &&
+          String(lastRow.InvoiceAmount).trim() !== "" &&
+          Number(lastRow.InvoiceAmount) !== 0;
+
+        if (poAmt > 0 && remainingAfter > 0 && lastRowHasValue) {
+          // Append new blank row for continued entry
+          const maxId =
+            updatedRows.length > 0
+              ? Math.max(...updatedRows.map((r) => r.id))
+              : 0;
+          updatedRows.push({
+            id: maxId + 1,
+            InvoiceDescription: "",
+            RemainingPoAmount: remainingAfter.toFixed(2),
+            InvoiceAmount: "",
+            InvoiceDueDate: "",
+            InvoiceProceedDate: "",
+            showProceed: false,
+            InvoiceStatus: "",
+            userInGroup: false,
+            employeeEmail: "",
+            itemID: null as number | null,
+            InvoiceNo: "",
+            InvoiceDate: "",
+            InvoiceTaxAmount: "",
+            ClaimNo: null, // Updated to use null instead of an empty string
+            DocId: "",
+            InvoiceFileID: "",
+            invoiceApprovalChecked: false, // Initialize here
+          });
+        }
+
+        // Remove extra rows if the totalInvoiceAmount exceeds the PO amount
+        if (remainingAfter <= 0) {
+          updatedRows = updatedRows.filter(
+            (row, idx) =>
+              idx === 0 ||
+              Number(row.InvoiceAmount) !== 0 ||
+              idx < updatedRows.length - 1
+          );
+        }
+      }
+
+      // If rowEdit is enabled, update localInvoiceData
+      if (props.rowEdit === "Yes") {
+        setLocalInvoiceData(
+          updatedRows.map((row) => ({
+            InvoiceDescription: row.InvoiceDescription,
+            InvoiceAmount: row.InvoiceAmount,
+            InvoiceDueDate: row.InvoiceDueDate,
+            RemainingPoAmount: row.RemainingPoAmount,
+          }))
+        );
+      }
+
+      // Log the updated rows for debugging
+      console.log("Updated Invoice Rows:", updatedRows);
+
+      return updatedRows;
+    });
+
+    // Log the field and value being updated
+    console.log(`Field Updated: ${field}, Value: ${value}`);
+  };
   const handleUpdateInvoiceRow = async (
     e: React.MouseEvent<HTMLButtonElement>,
     row: InvoiceRow
@@ -227,14 +387,14 @@ export default function RequesterInvoiceSection({
       alert("Failed to update invoice row.");
     }
   };
-  console.log(invoiceRows, "invoiceRowsabc"); // Log invoiceRows to check its value
-  console.log(approverStatus, "approverStatusinvoiceRowsabc"); // Log invoiceRows to check its value
+  // console.log(invoiceRows, "invoiceRowsabc"); // Log invoiceRows to check its value
+  // console.log(approverStatus, "approverStatusinvoiceRowsabc"); // Log invoiceRows to check its value
   const handleHistoryClick = async (
     e: React.MouseEvent<HTMLButtonElement>,
     row: any
   ) => {
     e.preventDefault();
-    console.log(`History clicked for row ${row.itemID}`);
+    // console.log(`History clicked for row ${row.itemID}`);
     // const filterQuery = `$filter=CMSRequestItemID eq '${row.itemID}'&$orderby=Id desc`;
     const filterQuery = `$select=*,Author/Title&$expand=Author&$filter=CMSRequestItemID eq '${row.itemID}'&$orderby=Id desc`;
 
@@ -247,9 +407,9 @@ export default function RequesterInvoiceSection({
         InvoiceHistory,
         filterQuery
       );
-      console.log("Invoice history fetched successfully:", response);
+      // console.log("Invoice history fetched successfully:", response);
       setInvoiceHistoryData(response); // Store history data
-      console.log(invoiceHistoryData, "invoiceHistoryData");
+      // console.log(invoiceHistoryData, "invoiceHistoryData");
       // console.log()
     } catch (error) {
       console.error("Error fetching invoice history:", error);
@@ -275,34 +435,202 @@ export default function RequesterInvoiceSection({
     setSelectedRow(null); // Clear the selected row data
   };
   // Safely parse and validate the date:
-  interface GetValidDate {
-    (dateStr: string): moment.Moment | null;
-  }
+  // interface GetValidDate {
+  //   (dateStr: string): moment.Moment | null;
+  // }
 
-  const getValidDate: GetValidDate = (
-    dateStr: string
-  ): moment.Moment | null => {
-    console.log(dateStr, "dateStrgetValidDate");
-    const parsed = moment(dateStr, "DD-MM-YYYY", true); // strict parsing
-    return parsed.isValid() ? parsed : null; // fallback to null (empty)
-  };
-  console.log(getValidDate);
+  // const getValidDate: GetValidDate = (
+  //   dateStr: string
+  // ): moment.Moment | null => {
+  //   console.log(dateStr, "dateStrgetValidDate");
+  //   const parsed = moment(dateStr, "DD-MM-YYYY", true); // strict parsing
+  //   return parsed.isValid() ? parsed : null; // fallback to null (empty)
+  // };
+  // console.log(getValidDate);
+
+  // const handleInvoiceTextChange = (
+  //   index: number,
+  //   field: keyof InvoiceRow,
+  //   value: string | number
+  // ) => {
+  //   setInvoiceRows((prevRows) => {
+  //     let updatedRows = [...prevRows];
+
+  //     // Ensure the row exists before updating
+  //     if (!updatedRows[index]) {
+  //       console.error(`Row at index ${index} is undefined.`);
+  //       return prevRows; // Return the previous state to avoid breaking
+  //     }
+
+  //     // Update the specific field in the row
+  //     updatedRows[index] = { ...updatedRows[index], [field]: value };
+
+  //     if (field === "InvoiceAmount") {
+  //       const poAmt = Number(totalPoAmount) || 0;
+
+  //       // Recalculate RemainingPoAmount for every row
+  //       let runningRemaining = poAmt;
+  //       for (let idx = 0; idx < updatedRows.length; idx++) {
+  //         const currentRow = updatedRows[idx];
+  //         const currentInvoiceAmount = Number(currentRow.InvoiceAmount) || 0;
+
+  //         if (idx === 0) {
+  //           // For the first row, RemainingPoAmount is the total PO amount
+  //           currentRow.RemainingPoAmount = runningRemaining.toFixed(2);
+  //         } else {
+  //           // For subsequent rows, RemainingPoAmount is calculated based on the previous row
+  //           const prevRow = updatedRows[idx - 1];
+  //           runningRemaining -= Number(prevRow.InvoiceAmount) || 0;
+  //           currentRow.RemainingPoAmount = runningRemaining.toFixed(2);
+  //         }
+
+  //         // Deduct the current row's InvoiceAmount from the runningRemaining
+  //         runningRemaining -= currentInvoiceAmount;
+  //       }
+
+  //       // Check if a new row needs to be added
+  //       const totalInvoiceAmount = updatedRows.reduce(
+  //         (sum, row) => sum + (Number(row.InvoiceAmount) || 0),
+  //         0
+  //       );
+  //       const remainingAfter = +(poAmt - totalInvoiceAmount).toFixed(2);
+  //       const lastRow = updatedRows[updatedRows.length - 1];
+  //       const lastRowHasValue =
+  //         lastRow &&
+  //         String(lastRow.InvoiceAmount).trim() !== "" &&
+  //         Number(lastRow.InvoiceAmount) !== 0;
+
+  //       if (poAmt > 0 && remainingAfter > 0 && lastRowHasValue) {
+  //         // Append new blank row for continued entry
+  //         const maxId =
+  //           updatedRows.length > 0
+  //             ? Math.max(...updatedRows.map((r) => r.id))
+  //             : 0;
+  //         updatedRows.push({
+  //           id: maxId + 1,
+  //           InvoiceDescription: "",
+  //           RemainingPoAmount: remainingAfter.toFixed(2),
+  //           InvoiceAmount: "",
+  //           InvoiceDueDate: "",
+  //           InvoiceProceedDate: "",
+  //           showProceed: false,
+  //           InvoiceStatus: "",
+  //           userInGroup: false,
+  //           employeeEmail: "",
+  //           itemID: null as number | null,
+  //           InvoiceNo: "",
+  //           InvoiceDate: "",
+  //           InvoiceTaxAmount: "",
+  //           ClaimNo: null, // Updated to use null instead of an empty string
+  //           DocId: "",
+  //           InvoiceFileID: "",
+  //           invoiceApprovalChecked: false, // Initialize here
+  //         });
+  //       }
+  //     }
+
+  //     // If rowEdit is enabled, update localInvoiceData
+  //     if (props.rowEdit === "Yes") {
+  //       setLocalInvoiceData(
+  //         updatedRows.map((row) => ({
+  //           InvoiceDescription: row.InvoiceDescription,
+  //           InvoiceAmount: row.InvoiceAmount,
+  //           InvoiceDueDate: row.InvoiceDueDate,
+  //           RemainingPoAmount: row.RemainingPoAmount,
+  //         }))
+  //       );
+  //     }
+
+  //     // Log the updated rows for debugging
+  //     console.log("Updated Invoice Rows:", updatedRows);
+
+  //     return updatedRows;
+  //   });
+
+  //   // Log the field and value being updated
+  //   console.log(`Field Updated: ${field}, Value: ${value}`);
+  // };
+
   const proceedButtonCount = invoiceRows.filter(
     (row) => row.InvoiceStatus === "Started"
   ).length;
   React.useEffect(() => {
-    console.log("proceedButtonCount:", proceedButtonCount);
+    // console.log("proceedButtonCount:", proceedButtonCount);
     if (onProceedButtonCountChange) {
       onProceedButtonCountChange(proceedButtonCount);
     }
   }, [proceedButtonCount, onProceedButtonCountChange]);
 
-  // (row add/remove handled in parent `RequestForm`)  
+  // (row add/remove handled in parent `RequestForm`)
+  React.useEffect(() => {
+    setLocalInvoiceData(
+      invoiceRows.map((row) => ({
+        InvoiceDescription: row.InvoiceDescription,
+        InvoiceAmount: row.InvoiceAmount,
+        InvoiceDueDate: row.InvoiceDueDate,
+        RemainingPoAmount: row.RemainingPoAmount,
+      }))
+    );
+  }, [invoiceRows]);
+
+  // Function to handle local state updates for all fields
+  const handleLocalFieldChange = (
+    index: number,
+    field: keyof InvoiceRow,
+    value: string | number
+  ) => {
+    setLocalInvoiceData((prev) => {
+      const updatedData = [...prev];
+      updatedData[index] = { ...updatedData[index], [field]: value };
+      return updatedData;
+    });
+
+    // Call handleInvoiceChange to update parent state
+    handleInvoiceChange(index, field, value);
+    // if (field === "InvoiceAmount") {
+    //   handleInvoiceTextChange(index, field, value);
+    // }
+  };
+
+  // Initialize local state for all fields
+
   return (
     <div className="mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-3 sectionheader"
-      style={{padding:"7px 8px"}}>
+      <div
+        className="d-flex justify-content-between align-items-center mb-3 sectionheader"
+        style={{ padding: "7px 8px" }}
+      >
         <div className="d-flex align-items-center justify-content-between">
+          {/* Invoice section approval checkbox (editable mode shown by parent) */}
+          {isEditMode &&
+            props.selectedRow.employeeEmail === currentUserEmail &&
+            props.selectedRow.isPaymentReceived !== "Yes" &&
+            !["Approved", "Hold", "Pending From Approver"].includes(
+              props.selectedRow.approverStatus
+            ) && (
+              <span
+                className="form-check me-2"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginRight: 8,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  id="cbInvoice"
+                  className="form-check-input"
+                  checked={invoiceApprovalChecked}
+                  onChange={(e) => {
+                    setInvoiceApprovalChecked &&
+                      setInvoiceApprovalChecked(e.target.checked);
+                    setShowEditInvoiceColumn(e.target.checked); // Toggle visibility
+                  }}
+                  onClick={(ev) => ev.stopPropagation()}
+                />
+              </span>
+            )}
+
           <h5
             className="fw-bold mt-2 me-2 headingColor"
             style={{ cursor: "pointer" }}
@@ -312,6 +640,7 @@ export default function RequesterInvoiceSection({
           >
             Invoice Details
           </h5>
+
           {/* <button
             type="button"
             className="btn btn-link"
@@ -643,19 +972,46 @@ export default function RequesterInvoiceSection({
                   (row) => row.InvoiceStatus === "Generated"
                 ) && <th className="">Invoice Attachment</th>}
                 <th className="fixed-th">Action</th>
+                {/* Add a new column header "Edit Invoice" if the checkbox condition is met */}
+                {showEditInvoiceColumn && (
+                  <th className="fixed-th">Edit Invoice</th>
+                )}
               </tr>
             </thead>
             <tbody>
               {invoiceRows
                 .filter((row) => {
+                  // Debugging log to verify rows being rendered
+                  console.log("Rendering row:", row);
+
+                  // If user belongs to CMSAccountGroup → apply filter
                   if (userGroups.includes("CMSAccountGroup")) {
                     return row.InvoiceStatus !== "Started";
                   }
+                  // Otherwise → show all rows
                   return true;
                 })
                 .slice()
-                .sort((a, b) => Number(a.ClaimNo) - Number(b.ClaimNo))
-                // .map((row, index) => (
+                .sort((a, b) => {
+                  const claimA =
+                    a.ClaimNo !== null
+                      ? Number(a.ClaimNo)
+                      : Number.MAX_SAFE_INTEGER;
+                  const claimB =
+                    b.ClaimNo !== null
+                      ? Number(b.ClaimNo)
+                      : Number.MAX_SAFE_INTEGER;
+
+                  // If both ClaimNo are null, sort by id
+                  if (
+                    claimA === Number.MAX_SAFE_INTEGER &&
+                    claimB === Number.MAX_SAFE_INTEGER
+                  ) {
+                    return a.id - b.id;
+                  }
+
+                  return claimA - claimB;
+                }) // .map((row, index) => (
                 .map((row, index) => (
                   <tr key={row.id}>
                     <td className="fixedcolumn fixed-serial">{index + 1}</td>
@@ -672,15 +1028,43 @@ export default function RequesterInvoiceSection({
                             ? "is-invalid"
                             : ""
                         }`}
-                        value={row.InvoiceDescription}
-                        onChange={(e) =>
-                          handleTextFieldChange(
-                            index,
-                            "InvoiceDescription",
-                            e.target.value
-                          )
+                        value={
+                          props.rowEdit === "Yes"
+                            ? localInvoiceData[index]?.InvoiceDescription || "" // Keep it blank if cleared
+                            : row.InvoiceDescription
                         }
-                        disabled={isEditMode}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (props.rowEdit === "Yes") {
+                            handleLocalFieldChange(
+                              index,
+                              "InvoiceDescription",
+                              value
+                            );
+                          }
+                          // else {
+                          //   handleTextFieldChange(
+                          //     index,
+                          //     "InvoiceDescription",
+                          //     value
+                          //   );
+                          // }
+                        }}
+                        disabled={
+                          props.rowEdit === "Yes"
+                            ? !(
+                                props.selectedRow?.employeeEmail ===
+                                  currentUserEmail &&
+                                props.selectedRow?.selectedSections
+                                  ?.toLowerCase()
+                                  .includes("invoice") &&
+                                props.selectedRow?.approverStatus ===
+                                  "Approved" &&
+                                (row.InvoiceStatus === "" ||
+                                  row.InvoiceStatus === "Pending Approval")
+                              )
+                            : false
+                        }
                       />
                       {errors[`InvoiceDescription_${index}`] && (
                         <div className="invalid-feedback">
@@ -692,10 +1076,17 @@ export default function RequesterInvoiceSection({
                       <input
                         type="text"
                         className="form-control"
+                        // value={
+                        //   index === 0
+                        //     ? totalPoAmount.toFixed(2)
+                        //     : row.RemainingPoAmount
+                        // }
                         value={
                           index === 0
-                            ? totalPoAmount.toFixed(2)
-                            : row.RemainingPoAmount
+                            ? totalPoAmount.toFixed(2) // Always set totalPoAmount for the first row
+                            : props.rowEdit === "Yes"
+                            ? localInvoiceData[index]?.RemainingPoAmount || "" // Use local data if in rowEdit mode
+                            : row.RemainingPoAmount // Use the calculated RemainingPoAmount for other rows
                         }
                         disabled
                       />
@@ -706,15 +1097,50 @@ export default function RequesterInvoiceSection({
                         className={`form-control ${
                           errors[`InvoiceAmount_${index}`] ? "is-invalid" : ""
                         }`}
-                        value={row.InvoiceAmount}
+                        value={
+                          props.rowEdit === "Yes"
+                            ? localInvoiceData[index]?.InvoiceAmount || "" // Keep it blank if cleared
+                            : row.InvoiceAmount
+                        }
                         min={0}
                         step="any"
                         onChange={(e) => {
                           const value = e.target.value;
-                          if (Number(value) < 0) return;
-                          handleTextFieldChange(index, "InvoiceAmount", value);
+                          if (props.rowEdit === "Yes") {
+                            handleTextFieldChange(
+                              index,
+                              "InvoiceAmount",
+                              value
+                            );
+
+                            handleLocalFieldChange(
+                              index,
+                              "InvoiceAmount",
+                              value
+                            );
+                          } else {
+                            handleTextFieldChange(
+                              index,
+                              "InvoiceAmount",
+                              value
+                            );
+                          }
                         }}
-                        disabled={isEditMode}
+                        disabled={
+                          props.rowEdit === "Yes"
+                            ? !(
+                                props.selectedRow?.employeeEmail ===
+                                  currentUserEmail &&
+                                props.selectedRow?.selectedSections
+                                  ?.toLowerCase()
+                                  .includes("invoice") &&
+                                props.selectedRow?.approverStatus ===
+                                  "Approved" &&
+                                (row.InvoiceStatus === "" ||
+                                  row.InvoiceStatus === "Pending Approval")
+                              )
+                            : false
+                        }
                       />
                       {errors[`InvoiceAmount_${index}`] && (
                         <div className="invalid-feedback">
@@ -724,27 +1150,54 @@ export default function RequesterInvoiceSection({
                     </td>
                     <td className="fixedcolumn">
                       <DatePicker
-                        type="date"
-                        className={`form-control ${
-                          errors[`InvoiceDueDate_${index}`] ? "is-invalid" : ""
-                        }`}
                         format="DD-MM-YYYY"
                         value={
-                          row.InvoiceDueDate
+                          props.rowEdit === "Yes"
+                            ? localInvoiceData[index]?.InvoiceDueDate
+                              ? moment(
+                                  localInvoiceData[index]?.InvoiceDueDate,
+                                  "DD-MM-YYYY"
+                                )
+                              : null // Keep it blank if cleared
+                            : row.InvoiceDueDate
                             ? moment(row.InvoiceDueDate, "DD-MM-YYYY")
                             : null
                         }
-                        onChange={(date) =>
-                          handleTextFieldChange(
-                            index,
-                            "InvoiceDueDate",
-                            date ? date.format("DD-MM-YYYY") : ""
-                          )
-                        }
+                        onChange={(date) => {
+                          const value = date ? date.format("DD-MM-YYYY") : ""; // Handle null value
+                          if (props.rowEdit === "Yes") {
+                            handleLocalFieldChange(
+                              index,
+                              "InvoiceDueDate",
+                              value
+                            );
+                          }
+                          // else {
+                          //   handleTextFieldChange(
+                          //     index,
+                          //     "InvoiceDueDate",
+                          //     value
+                          //   );
+                          // }
+                        }}
                         disabledDate={(current) =>
                           current && current < moment().startOf("day")
                         }
-                        disabled={isEditMode}
+                        disabled={
+                          props.rowEdit === "Yes"
+                            ? !(
+                                props.selectedRow?.employeeEmail ===
+                                  currentUserEmail &&
+                                props.selectedRow?.selectedSections
+                                  ?.toLowerCase()
+                                  .includes("invoice") &&
+                                props.selectedRow?.approverStatus ===
+                                  "Approved" &&
+                                (row.InvoiceStatus === "" ||
+                                  row.InvoiceStatus === "Pending Approval")
+                              )
+                            : false
+                        }
                       />
                       {errors[`InvoiceDueDate_${index}`] && (
                         <div className="invalid-feedback">
@@ -812,10 +1265,23 @@ export default function RequesterInvoiceSection({
                     <td className="fixedcolumn">
                       {isEditMode && row.showProceed && (
                         <>
+                          {/* {row.InvoiceStatus === "Started" &&
+                            !proceededRows.includes(row.id) &&
+                            row.employeeEmail === currentUserEmail && (
+                              // !pendingStatuses.includes(approverStatus) &&
+                              <button
+                                className="btn btn-primary me-2"
+                                onClick={(e) => handleUpdateInvoiceRow(e, row)}
+                              >
+                                Proceed
+                              </button>
+                            )} */}
                           {row.InvoiceStatus === "Started" &&
                             !proceededRows.includes(row.id) &&
                             row.employeeEmail === currentUserEmail &&
-                            !pendingStatuses.includes(approverStatus) && (
+                            !["Approved", "Hold", "Reminder"].includes(
+                              props?.selectedRow?.approverStatus
+                            ) && (
                               <button
                                 className="btn btn-primary me-2"
                                 onClick={(e) => handleUpdateInvoiceRow(e, row)}
@@ -841,18 +1307,49 @@ export default function RequesterInvoiceSection({
                             Proceed approval pending
                           </button>
                         )}
-                      {!isEditMode && (
+                      {/* {!isEditMode && ( */}
+                      {(!isEditMode ||
+                        (props.rowEdit === "Yes" &&
+                          props.selectedRow?.employeeEmail ===
+                            currentUserEmail &&
+                          props.selectedRow?.selectedSections
+                            ?.toLowerCase()
+                            .includes("invoice") &&
+                          props.selectedRow?.approverStatus === "Approved" &&
+                          row.InvoiceStatus === "Pending Approval")) && (
                         <button
                           className="btn btn-danger"
                           onClick={() => deleteInvoiceRow(row.id)}
                           disabled={invoiceRows.length === 1}
-                          // disabled={invoiceRows.length === 1 || disableDeleteInvoiceRow}
                           title="Delete Invoice Row"
                         >
                           <FontAwesomeIcon icon={faTrash} />
                         </button>
                       )}
                     </td>
+                    {/* Add a checkbox for each row in the "Edit Invoice" column if the condition is satisfied */}
+                    {showEditInvoiceColumn &&
+                      row.InvoiceStatus !== "Generated" && (
+                        <td className="fixedcolumn">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            onChange={(e) =>
+                              setInvoiceRows((prevRows) =>
+                                prevRows.map((r) =>
+                                  r.id === row.id
+                                    ? {
+                                        ...r,
+                                        invoiceApprovalChecked:
+                                          e.target.checked,
+                                      }
+                                    : r
+                                )
+                              )
+                            }
+                          />
+                        </td>
+                      )}
                   </tr>
                 ))}
             </tbody>

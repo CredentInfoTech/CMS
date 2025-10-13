@@ -18,7 +18,7 @@ import { SPHttpClient } from "@microsoft/sp-http";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Spinner from "react-bootstrap/Spinner";
 import { DatePicker } from "antd";
-import * as moment from "moment";
+import moment from "moment";
 import {
   faEye,
   faClockRotateLeft,
@@ -783,18 +783,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
           sx={{ mt: 0.625 }} // 5px margin top
           value={params.row.paymentValue || ""}
           disabled={statusFilter !== "Pending"}
-          // slotProps={{
-          //   input: {
-          //     inputProps: { min: 1 }  // 👈 replaces inputProps
-          //   }
-          // }}
-          // error={params.row.paymentValue === "0"}  // 👈 red highlight when 0
-          // helperText={
-          //   params.row.paymentValue === "0"
-          //     ? "Amount received cannot be 0"
-          //     : ""
-          // }
-
           onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
             if (e.key === "-" || e.key === "+") {
               e.preventDefault(); // block minus, plus
@@ -813,23 +801,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
             } else {
               alert("Payment Value must be greater than 0.");
             }
-
-            // // if (parseFloat(value) > 0) {
-            // // params.api.updateRows([{ ...params.row, paymentValue: value }]);
-            // // } else {
-            // //   alert("Payment Value must be greater than 0.");
-            //    const num = Number(value);
-
-            // // block negatives and zero
-            // if (num <= 0) return;
-
-            // // only allow integers
-            // if (!Number.isInteger(num)) return;
-
-            // // valid number >= 1
-            // params.api.updateRows([{ ...params.row, paymentValue: num }]);
-
-            // // }
           }}
         />
       ),
@@ -1258,6 +1229,650 @@ const Dashboard = (props: ICmsRebuildProps) => {
             >
               <FontAwesomeIcon icon={faEye} title="Contract Details" />
             </Button>
+          </Stack>
+        ),
+    },
+  ];
+
+  // Add columns for "Credit Note Pending"
+  const creditNotePendingColumns: GridColDef[] = [
+    {
+      field: "contractNo",
+      headerName: "Contract No",
+      minWidth: 130,
+      flex: 1,
+      renderCell: (params: any) => (
+        <Stack direction="row" spacing={1}>
+          <a
+            href="#"
+            style={{
+              cursor: "pointer",
+              color: "#1976d2",
+              textDecoration: "underline",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              handleShoworm(params.row.id, params.row);
+            }}
+          >
+            {params.row.contractNo}
+          </a>
+        </Stack>
+      ),
+      editable: false,
+    },
+    {
+      field: "customerName",
+      headerName: "Customer Name",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "productType",
+      headerName: "Product Type",
+      minWidth: 140,
+      flex: 1,
+    },
+    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
+    { field: "poAmount", headerName: "Po Amount", minWidth: 130, flex: 1 },
+    {
+      field: "upcomingInvoice",
+      headerName: "UpComing Invoice Date",
+      minWidth: 150,
+      flex: 1,
+    },
+    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
+    { field: "workTitle", headerName: "Work Title", minWidth: 150, flex: 1 },
+
+    {
+      field: "TotalPaymentRecieved",
+      headerName: "Invoice Recieved Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+    {
+      field: "TotalPendingAmount",
+      headerName: "Invoice Pending Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+    {
+      field: "InvoiceTaxAmount",
+      headerName: "Total Invoice Tax Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+  ];
+  // Filter rows for "Credit Note Pending"
+  const creditNotePendingRows: RowData[] =
+    financeFilter === "Credit Note Pending"
+      ? statusFilter === "Pending"
+        ? invoiceRows.filter((row) => row.prevInvoiceStatus === "Generated")
+        : invoiceRows.filter(
+            (row) => row.invoiceStatus === "Credit Note Uploaded"
+          )
+      : [];
+
+  // Loader overlay
+  const LoaderOverlay = () => (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(255,255,255,0.6)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Spinner animation="border" variant="primary" />
+      <span className="ms-3">Processing...</span>
+    </div>
+  );
+
+  const handleRowUpdate = (newRow: any, oldRow: any) => {
+    // Validate paymentValue for non-negative, non-zero
+
+    // Do any necessary validation or merging here
+    const updatedRow = { ...oldRow, ...newRow };
+
+    // Optionally persist or validate file input
+    if (newRow.invoiceAttachment instanceof File) {
+      // Save it to backend or local state as needed
+      console.log("File attached:", newRow.invoiceAttachment);
+    }
+
+    return updatedRow; // Must return updated row
+  };
+  const handleAttachmentChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    row: any
+  ) => {
+    event.preventDefault();
+    const file = event.target.files?.[0];
+    if (file) {
+      setRowFiles((prev) => ({ ...prev, [row.id]: file }));
+      alert(`File "${file.name}" is selected.`);
+    } else {
+      setRowFiles((prev) => {
+        const updated = { ...prev };
+        delete updated[row.id];
+        return updated;
+      });
+
+      setTimeout(() => {
+        const grid = document.querySelector(`[data-id="${row.id}"]`);
+        if (grid) {
+        }
+      }, 0);
+    }
+  };
+
+  // const handleEmailSentDateChange = (
+  //   event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  //   row: any
+  // ) => {
+  //   const selectedDate = event.target.value;
+
+  //   // console.log("Email Sent Date for row", row.id, selectedDate);
+  // };
+
+  // const handleGenerateInvoice = (row: any) => {
+  //   // console.log("Generate Invoice for", row.id, row);
+  // };
+
+  // console.log(handleEmailSentDateChange, handleGenerateInvoice);
+
+  const handleSaveClick = (row: any) => {
+    setEditableRowId(null);
+    console.log("Save clicked for row ID:", row);
+
+    void updateInvoiceDetails(row, rowFiles[row.id]);
+  };
+
+  const updateInvoiceDetails = async (row: any, file?: File) => {
+    if (financeFilter === "Invoice Pending") {
+      setIsLoading(true);
+      // console.log("update button clicked", row);
+
+      if (!file) {
+        setIsLoading(false);
+        alert(
+          "Please select a file before saving. File selection is mandatory."
+        );
+        return;
+      }
+
+      if (
+        !row.invoiceInvoicNo ||
+        !row.invoiceInvoiceDate ||
+        !row.taxInvoiceAmount
+      ) {
+        setIsLoading(false);
+        alert(
+          "Invoice No, Invoice Date, and Tax Invoice Value are mandatory. Please fill all required fields."
+        );
+        return;
+      }
+      if (Number(row.taxInvoiceAmount) < Number(row.invoiceAmount)) {
+        setIsLoading(false);
+        alert(
+          "Tax Invoice Value must be greater than or equal to Invoice Amount."
+        );
+        return;
+      }
+
+      // console.log(row.taxInvoiceAmount, row.invoiceAmount, "row.invoiceAmount");
+      const invoiceExists = await checkInvoiceNo(row.invoiceInvoicNo);
+
+      if (invoiceExists) {
+        setIsLoading(false);
+        alert(
+          "This Invoice No already exists. Please enter a unique Invoice No."
+        );
+        return;
+      }
+
+      let uploadedFileResult = null;
+      const generatedUID = Math.random()
+        .toString(36)
+        .substr(2, 16)
+        .toUpperCase();
+
+      try {
+        // const claimNo = row.contractNo + "-" + row.invoiceClaimNo;
+        // console.log(row.contractNo, row.invoiceClaimNo, claimNo, "claimNo");
+        // You can adjust metadata, filterQuery, selectedValues as needed
+        const metadata = {
+          //  DocID: row.docID,
+          DocID: generatedUID,
+          ClaimNo: row.contractNo,
+        };
+        // console.log(metadata, "metadata");
+        uploadedFileResult = await uploadFileWithMetadata(
+          file,
+          metadata,
+          CMSInvoiceDocuments
+        );
+
+        console.log(
+          "File uploaded to SharePoint:",
+          uploadedFileResult,
+          metadata
+        );
+
+        // After successful file upload, update the SharePoint list item
+
+        const updatedata = {
+          InvoiceStatus: "Generated",
+          InvoicNo: row.invoiceInvoicNo,
+          InvoiceDate: row.invoiceInvoiceDate,
+          InvoiceTaxAmount: Number(row.taxInvoiceAmount),
+          // InvoiceFileID: row.docID,
+          InvoiceFileID: generatedUID,
+          TotalPendingAmount: Number(row.taxInvoiceAmount),
+        };
+
+        // console.log("updatedata", updatedata);
+        try {
+          const updatedData = await updateDataToSharePoint(
+            InvoicelistName,
+            updatedata,
+            siteUrl,
+            row.invoiceInvoiceID
+          );
+          console.log("updatedata", updatedData);
+
+          if (props.refreshCmsDetails) {
+            await props.refreshCmsDetails();
+          }
+
+          await refreshInvoiceDocuments();
+          setIsLoading(false);
+          alert("Invoice Generated Successfully.");
+        } catch (error) {
+          setIsLoading(false);
+          console.error("Failed to update request:", error);
+          alert(
+            "Something went wrong while sending your edit request. Please try again."
+          );
+        }
+      } catch (error) {
+        setIsLoading(false);
+        console.error("File upload failed:", error);
+        alert("File upload failed. Please try again.");
+        return;
+      }
+    } else if (financeFilter === "Payment Pending") {
+      setIsLoading(true);
+      if (!row.paymentDate || !row.paymentValue) {
+        setIsLoading(false);
+        alert(
+          "Payment Date and Payment Value are mandatory. Please fill all required fields."
+        );
+        return;
+      }
+
+      // console.log("update payment button clicked", row);
+      // console.log(row.id, "row.id");
+      const CMSRequestItemID = row.id.split("-")[0];
+      const CMSInvoiceDetailIndex = row.id.split("-")[1];
+
+      let isInvoicePaymentReceived = "";
+      let PaymentAmount: number = Number(row.paymentValue);
+      let totalRecievedAmount =
+        row.invoiceDetails[CMSInvoiceDetailIndex].TotalPaymentRecieved || 0;
+      let TaxAmount = row.taxInvoiceAmount;
+      // let totalPendingAmount =
+      //   row.invoiceDetails[CMSInvoiceDetailIndex].TotalPendingAmount || 0;
+      // console.log(totalPendingAmount);
+      totalRecievedAmount = Number(totalRecievedAmount).toFixed(2);
+      PaymentAmount = Math.round(Number(PaymentAmount) * 100) / 100;
+      let InvoiceRecievedAmount =
+        Number(totalRecievedAmount) + Number(PaymentAmount);
+      // let InvoicePendingAmount = Number(TaxAmount) - Number(InvoiceRecievedAmount);
+      const InvoicePendingAmount = Number(
+        (Number(TaxAmount) - Number(InvoiceRecievedAmount)).toFixed(2)
+      );
+      if (
+        Number(InvoiceRecievedAmount.toFixed(2)) > Number(TaxAmount.toFixed(2))
+      ) {
+        setIsLoading(false);
+        alert(
+          "Payment Value cannot be greater than the pending amount for this invoice."
+        );
+        return;
+      }
+
+      if (InvoiceRecievedAmount === 0) {
+        setIsLoading(false);
+        alert("Payment Value cannot be 0.");
+        return;
+      }
+
+      if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
+        isInvoicePaymentReceived = "Yes";
+      }
+
+      const updatedata = {
+        PaymentDate: row.paymentDate,
+        CMSRequestItemID: row.invoiceInvoiceID,
+        CMSRequestID: CMSRequestItemID,
+        ClaimNo: row.ClaimNo,
+        InvoiceTaxAmount: row.taxInvoiceAmount,
+        PaymentAmount: Number(PaymentAmount),
+        PendingAmount: InvoicePendingAmount,
+        UID: row.UID,
+        Comment: row.comments,
+      };
+
+      const updateInvoicedata = {
+        TotalPaymentRecieved: InvoiceRecievedAmount,
+        TotalPendingAmount: InvoicePendingAmount,
+        PaymentStatus: isInvoicePaymentReceived,
+      };
+
+      const updateRequestmetadata = {
+        IsPaymentReceived: "Yes",
+        RunWF: "Yes",
+      };
+
+      try {
+        const updatedData = await saveDataToSharePoint(
+          PaymentHistoryListName,
+          updatedata,
+          siteUrl
+        );
+
+        const updatedInvoiceData = await updateDataToSharePoint(
+          InvoicelistName,
+          updateInvoicedata,
+          siteUrl,
+          row.invoiceInvoiceID
+        );
+
+        if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
+          // const filterQuery = `$select=*&$filter=TotalPendingAmount ge 1 and RequestID eq ${CMSRequestItemID}`;
+          const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
+          const data = await getSharePointData(
+            props,
+            InvoicelistName,
+            filterQuery
+          );
+
+          // console.log(data, "checkdata");
+
+          if (data.length == 0) {
+            // console.log(updateRequestmetadata);
+            const updateRequestdata = await updateDataToSharePoint(
+              MainList,
+              updateRequestmetadata,
+              siteUrl,
+              CMSRequestItemID
+            );
+            console.log(
+              "updatedata",
+              updatedData,
+              updatedInvoiceData,
+              updateRequestdata
+            );
+          }
+        }
+
+        // console.log("updatedata", updatedData, updatedInvoiceData);
+
+        if (props.refreshCmsDetails) {
+          await props.refreshCmsDetails();
+        }
+        setIsLoading(false);
+        alert("Payment Added Successfully.");
+      } catch (error) {
+        setIsLoading(false);
+        console.error("Failed to update request:", error);
+        alert(
+          "Something went wrong while sending your edit request. Please try again."
+        );
+      }
+    } else {
+    }
+  };
+
+  const pendingPaymentColumns: GridColDef[] = [
+    {
+      field: "customerName",
+      headerName: "Customer Name",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "invoiceInvoicNo",
+      headerName: "Invoice No",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+
+    {
+      field: "taxInvoiceAmount",
+      headerName: "Tax Invoice Value",
+      minWidth: 150,
+      flex: 1,
+      editable: false,
+    },
+    // Editable fields
+
+    // {
+    //   field: "paymentDate",
+    //   headerName: "Payment Recieved Date",
+    //   minWidth: 200,
+    //   flex: 1,
+    //   renderCell: (params) => {
+    //     let inputValue = "";
+    //     if (params.row.paymentDate) {
+    //       const dateObj = new Date(params.row.paymentDate);
+    //       if (!isNaN(dateObj.getTime())) {
+
+    //         inputValue = dateObj.toISOString().split("T")[0];
+    //       }
+    //     }
+
+    //     return (
+    //       <div>
+    //         <TextField
+    //           size="small"
+    //           fullWidth
+    //           type="date"
+    //           sx={{ mt: 0.625 }} // 5px margin top
+    //           value={inputValue}
+    //           disabled={statusFilter !== "Pending"}
+    //           onChange={(e) => {
+    //             params.api.updateRows([
+    //               { ...params.row, paymentDate: e.target.value }
+    //             ]);
+    //           }}
+    //           InputLabelProps={{ shrink: true }}
+    //         />
+
+    //       </div>
+    //     );
+    //   },
+    // },
+    {
+      field: "paymentDate",
+      headerName: "Payment Recieved Date",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => {
+        // Use moment for value, fallback to null
+        const value = params.row.paymentDate
+          ? moment(params.row.paymentDate, "YYYY-MM-DD", true).isValid()
+            ? moment(params.row.paymentDate)
+            : null
+          : null;
+
+        return (
+          <DatePicker
+            format="DD-MM-YYYY"
+            value={value}
+            style={{ width: "100%", marginTop: 5 }}
+            disabled={statusFilter !== "Pending"}
+            onChange={(date) => {
+              params.api.updateRows([
+                {
+                  ...params.row,
+                  paymentDate: date ? date.format("YYYY-MM-DD") : "",
+                },
+              ]);
+            }}
+            allowClear
+            disabledDate={(current) =>
+              current && current > moment().endOf("day")
+            }
+          />
+        );
+      },
+    },
+
+    {
+      field: "paymentValue",
+      headerName: "Amount Recieved",
+      type: "number",
+      minWidth: 170,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          type="number"
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.paymentValue || ""}
+          disabled={statusFilter !== "Pending"}
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "-" || e.key === "+") {
+              e.preventDefault(); // block minus, plus
+            }
+          }}
+          onChange={(e) => {
+            const value = e.target.value;
+
+            if (value === "") {
+              params.api.updateRows([{ ...params.row, paymentValue: "" }]);
+              return;
+            }
+
+            if (parseFloat(value) > 0) {
+              params.api.updateRows([{ ...params.row, paymentValue: value }]);
+            } else {
+              alert("Payment Value must be greater than 0.");
+            }
+          }}
+        />
+      ),
+    },
+    {
+      field: "InvoiceTotalPaymentRecieved",
+      headerName: "Total Recieved Payment Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "invoiceTotalPendingAmount",
+      headerName: "Total Pending Payment Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+
+    {
+      field: "comments",
+      headerName: "Comments",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.comments || ""}
+          disabled={statusFilter !== "Pending"}
+          onChange={(e) => {
+            params.api.updateRows([
+              { ...params.row, comments: e.target.value },
+            ]);
+          }}
+        />
+      ),
+    },
+    {
+      field: "contractNo",
+      headerName: "Contract ID (Request ID)",
+      minWidth: 130,
+      flex: 1,
+      renderCell: (params: any) => {
+        return (
+          <Stack direction="row" spacing={1}>
+            <a
+              href="#"
+              style={{
+                cursor: "pointer",
+                color: "#1976d2",
+                textDecoration: "underline",
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleShoworm(params.row.id, params.row);
+              }}
+            >
+              {params.row.contractNo}
+            </a>
+          </Stack>
+        );
+      },
+      editable: false,
+      // hideable: true,
+    },
+    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
+    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
+    {
+      field: "action",
+      headerName: " ",
+
+      minWidth: 280,
+      flex: 1,
+      renderCell: (params) =>
+        statusFilter === "Done" ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+                marginRight: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
             {/* <Button
               variant="outlined"
               style={{ color: "#1976d2", borderColor: "#1976d2" }}
@@ -1284,6 +1899,1550 @@ const Dashboard = (props: ICmsRebuildProps) => {
                 />
               </Button>
             )}
+          </Stack>
+        ) : editableRowId === params.row.id ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+            {/* <Button
+              variant="outlined"
+              style={{ color: "#1976d2", borderColor: "#1976d2" }}
+            >
+              <FontAwesomeIcon
+                            icon={faClockRotateLeft}
+                            title="Payment History"
+                          />
+            </Button> */}
+            {params.row.InvoiceTotalPaymentRecieved > 0 && (
+              <Button
+                variant="outlined"
+                style={{
+                  color: "#1976d2",
+                  borderColor: "#1976d2",
+                  marginLeft: "10px",
+                }}
+                onClick={() => handleHistoryClick(params.row)}
+              >
+                <FontAwesomeIcon
+                  icon={faClockRotateLeft}
+                  title="Payment History"
+                />
+              </Button>
+            )}
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+            <Button
+              variant="contained"
+              // color="primary"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
+          </Stack>
+        ),
+    },
+  ];
+
+  // Add columns for "Credit Note Pending"
+  const creditNotePendingColumns: GridColDef[] = [
+    {
+      field: "contractNo",
+      headerName: "Contract No",
+      minWidth: 130,
+      flex: 1,
+      renderCell: (params: any) => (
+        <Stack direction="row" spacing={1}>
+          <a
+            href="#"
+            style={{
+              cursor: "pointer",
+              color: "#1976d2",
+              textDecoration: "underline",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              handleShoworm(params.row.id, params.row);
+            }}
+          >
+            {params.row.contractNo}
+          </a>
+        </Stack>
+      ),
+      editable: false,
+    },
+    {
+      field: "customerName",
+      headerName: "Customer Name",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "productType",
+      headerName: "Product Type",
+      minWidth: 140,
+      flex: 1,
+    },
+    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
+    { field: "poAmount", headerName: "Po Amount", minWidth: 130, flex: 1 },
+    {
+      field: "upcomingInvoice",
+      headerName: "UpComing Invoice Date",
+      minWidth: 150,
+      flex: 1,
+    },
+    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
+    { field: "workTitle", headerName: "Work Title", minWidth: 150, flex: 1 },
+
+    {
+      field: "TotalPaymentRecieved",
+      headerName: "Invoice Recieved Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+    {
+      field: "TotalPendingAmount",
+      headerName: "Invoice Pending Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+    {
+      field: "InvoiceTaxAmount",
+      headerName: "Total Invoice Tax Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+  ];
+  // Filter rows for "Credit Note Pending"
+  const creditNotePendingRows: RowData[] =
+    financeFilter === "Credit Note Pending"
+      ? statusFilter === "Pending"
+        ? invoiceRows.filter((row) => row.prevInvoiceStatus === "Generated")
+        : invoiceRows.filter(
+            (row) => row.invoiceStatus === "Credit Note Uploaded"
+          )
+      : [];
+
+  // Loader overlay
+  const LoaderOverlay = () => (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(255,255,255,0.6)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Spinner animation="border" variant="primary" />
+      <span className="ms-3">Processing...</span>
+    </div>
+  );
+
+  const handleRowUpdate = (newRow: any, oldRow: any) => {
+    // Validate paymentValue for non-negative, non-zero
+
+    // Do any necessary validation or merging here
+    const updatedRow = { ...oldRow, ...newRow };
+
+    // Optionally persist or validate file input
+    if (newRow.invoiceAttachment instanceof File) {
+      // Save it to backend or local state as needed
+      console.log("File attached:", newRow.invoiceAttachment);
+    }
+
+    return updatedRow; // Must return updated row
+  };
+  const handleAttachmentChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    row: any
+  ) => {
+    event.preventDefault();
+    const file = event.target.files?.[0];
+    if (file) {
+      setRowFiles((prev) => ({ ...prev, [row.id]: file }));
+      alert(`File "${file.name}" is selected.`);
+    } else {
+      setRowFiles((prev) => {
+        const updated = { ...prev };
+        delete updated[row.id];
+        return updated;
+      });
+
+      setTimeout(() => {
+        const grid = document.querySelector(`[data-id="${row.id}"]`);
+        if (grid) {
+        }
+      }, 0);
+    }
+  };
+
+  // const handleEmailSentDateChange = (
+  //   event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  //   row: any
+  // ) => {
+  //   const selectedDate = event.target.value;
+
+  //   // console.log("Email Sent Date for row", row.id, selectedDate);
+  // };
+
+  // const handleGenerateInvoice = (row: any) => {
+  //   // console.log("Generate Invoice for", row.id, row);
+  // };
+
+  // console.log(handleEmailSentDateChange, handleGenerateInvoice);
+
+  const handleSaveClick = (row: any) => {
+    setEditableRowId(null);
+    console.log("Save clicked for row ID:", row);
+
+    void updateInvoiceDetails(row, rowFiles[row.id]);
+  };
+
+  const updateInvoiceDetails = async (row: any, file?: File) => {
+    if (financeFilter === "Invoice Pending") {
+      setIsLoading(true);
+      // console.log("update button clicked", row);
+
+      if (!file) {
+        setIsLoading(false);
+        alert(
+          "Please select a file before saving. File selection is mandatory."
+        );
+        return;
+      }
+
+      if (
+        !row.invoiceInvoicNo ||
+        !row.invoiceInvoiceDate ||
+        !row.taxInvoiceAmount
+      ) {
+        setIsLoading(false);
+        alert(
+          "Invoice No, Invoice Date, and Tax Invoice Value are mandatory. Please fill all required fields."
+        );
+        return;
+      }
+      if (Number(row.taxInvoiceAmount) < Number(row.invoiceAmount)) {
+        setIsLoading(false);
+        alert(
+          "Tax Invoice Value must be greater than or equal to Invoice Amount."
+        );
+        return;
+      }
+
+      // console.log(row.taxInvoiceAmount, row.invoiceAmount, "row.invoiceAmount");
+      const invoiceExists = await checkInvoiceNo(row.invoiceInvoicNo);
+
+      if (invoiceExists) {
+        setIsLoading(false);
+        alert(
+          "This Invoice No already exists. Please enter a unique Invoice No."
+        );
+        return;
+      }
+
+      let uploadedFileResult = null;
+      const generatedUID = Math.random()
+        .toString(36)
+        .substr(2, 16)
+        .toUpperCase();
+
+      try {
+        // const claimNo = row.contractNo + "-" + row.invoiceClaimNo;
+        // console.log(row.contractNo, row.invoiceClaimNo, claimNo, "claimNo");
+        // You can adjust metadata, filterQuery, selectedValues as needed
+        const metadata = {
+          //  DocID: row.docID,
+          DocID: generatedUID,
+          ClaimNo: row.contractNo,
+        };
+        // console.log(metadata, "metadata");
+        uploadedFileResult = await uploadFileWithMetadata(
+          file,
+          metadata,
+          CMSInvoiceDocuments
+        );
+
+        console.log(
+          "File uploaded to SharePoint:",
+          uploadedFileResult,
+          metadata
+        );
+
+        // After successful file upload, update the SharePoint list item
+
+        const updatedata = {
+          InvoiceStatus: "Generated",
+          InvoicNo: row.invoiceInvoicNo,
+          InvoiceDate: row.invoiceInvoiceDate,
+          InvoiceTaxAmount: Number(row.taxInvoiceAmount),
+          // InvoiceFileID: row.docID,
+          InvoiceFileID: generatedUID,
+          TotalPendingAmount: Number(row.taxInvoiceAmount),
+        };
+
+        // console.log("updatedata", updatedata);
+        try {
+          const updatedData = await updateDataToSharePoint(
+            InvoicelistName,
+            updatedata,
+            siteUrl,
+            row.invoiceInvoiceID
+          );
+          console.log("updatedata", updatedData);
+
+          if (props.refreshCmsDetails) {
+            await props.refreshCmsDetails();
+          }
+
+          await refreshInvoiceDocuments();
+          setIsLoading(false);
+          alert("Invoice Generated Successfully.");
+        } catch (error) {
+          setIsLoading(false);
+          console.error("Failed to update request:", error);
+          alert(
+            "Something went wrong while sending your edit request. Please try again."
+          );
+        }
+      } catch (error) {
+        setIsLoading(false);
+        console.error("File upload failed:", error);
+        alert("File upload failed. Please try again.");
+        return;
+      }
+    } else if (financeFilter === "Payment Pending") {
+      setIsLoading(true);
+      if (!row.paymentDate || !row.paymentValue) {
+        setIsLoading(false);
+        alert(
+          "Payment Date and Payment Value are mandatory. Please fill all required fields."
+        );
+        return;
+      }
+
+      // console.log("update payment button clicked", row);
+      // console.log(row.id, "row.id");
+      const CMSRequestItemID = row.id.split("-")[0];
+      const CMSInvoiceDetailIndex = row.id.split("-")[1];
+
+      let isInvoicePaymentReceived = "";
+      let PaymentAmount: number = Number(row.paymentValue);
+      let totalRecievedAmount =
+        row.invoiceDetails[CMSInvoiceDetailIndex].TotalPaymentRecieved || 0;
+      let TaxAmount = row.taxInvoiceAmount;
+      // let totalPendingAmount =
+      //   row.invoiceDetails[CMSInvoiceDetailIndex].TotalPendingAmount || 0;
+      // console.log(totalPendingAmount);
+      totalRecievedAmount = Number(totalRecievedAmount).toFixed(2);
+      PaymentAmount = Math.round(Number(PaymentAmount) * 100) / 100;
+      let InvoiceRecievedAmount =
+        Number(totalRecievedAmount) + Number(PaymentAmount);
+      // let InvoicePendingAmount = Number(TaxAmount) - Number(InvoiceRecievedAmount);
+      const InvoicePendingAmount = Number(
+        (Number(TaxAmount) - Number(InvoiceRecievedAmount)).toFixed(2)
+      );
+      if (
+        Number(InvoiceRecievedAmount.toFixed(2)) > Number(TaxAmount.toFixed(2))
+      ) {
+        setIsLoading(false);
+        alert(
+          "Payment Value cannot be greater than the pending amount for this invoice."
+        );
+        return;
+      }
+
+      if (InvoiceRecievedAmount === 0) {
+        setIsLoading(false);
+        alert("Payment Value cannot be 0.");
+        return;
+      }
+
+      if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
+        isInvoicePaymentReceived = "Yes";
+      }
+
+      const updatedata = {
+        PaymentDate: row.paymentDate,
+        CMSRequestItemID: row.invoiceInvoiceID,
+        CMSRequestID: CMSRequestItemID,
+        ClaimNo: row.ClaimNo,
+        InvoiceTaxAmount: row.taxInvoiceAmount,
+        PaymentAmount: Number(PaymentAmount),
+        PendingAmount: InvoicePendingAmount,
+        UID: row.UID,
+        Comment: row.comments,
+      };
+
+      const updateInvoicedata = {
+        TotalPaymentRecieved: InvoiceRecievedAmount,
+        TotalPendingAmount: InvoicePendingAmount,
+        PaymentStatus: isInvoicePaymentReceived,
+      };
+
+      const updateRequestmetadata = {
+        IsPaymentReceived: "Yes",
+        RunWF: "Yes",
+      };
+
+      try {
+        const updatedData = await saveDataToSharePoint(
+          PaymentHistoryListName,
+          updatedata,
+          siteUrl
+        );
+
+        const updatedInvoiceData = await updateDataToSharePoint(
+          InvoicelistName,
+          updateInvoicedata,
+          siteUrl,
+          row.invoiceInvoiceID
+        );
+
+        if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
+          // const filterQuery = `$select=*&$filter=TotalPendingAmount ge 1 and RequestID eq ${CMSRequestItemID}`;
+          const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
+          const data = await getSharePointData(
+            props,
+            InvoicelistName,
+            filterQuery
+          );
+
+          // console.log(data, "checkdata");
+
+          if (data.length == 0) {
+            // console.log(updateRequestmetadata);
+            const updateRequestdata = await updateDataToSharePoint(
+              MainList,
+              updateRequestmetadata,
+              siteUrl,
+              CMSRequestItemID
+            );
+            console.log(
+              "updatedata",
+              updatedData,
+              updatedInvoiceData,
+              updateRequestdata
+            );
+          }
+        }
+
+        // console.log("updatedata", updatedData, updatedInvoiceData);
+
+        if (props.refreshCmsDetails) {
+          await props.refreshCmsDetails();
+        }
+        setIsLoading(false);
+        alert("Payment Added Successfully.");
+      } catch (error) {
+        setIsLoading(false);
+        console.error("Failed to update request:", error);
+        alert(
+          "Something went wrong while sending your edit request. Please try again."
+        );
+      }
+    } else {
+    }
+  };
+
+  const pendingPaymentColumns: GridColDef[] = [
+    {
+      field: "customerName",
+      headerName: "Customer Name",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "invoiceInvoicNo",
+      headerName: "Invoice No",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+
+    {
+      field: "taxInvoiceAmount",
+      headerName: "Tax Invoice Value",
+      minWidth: 150,
+      flex: 1,
+      editable: false,
+    },
+    // Editable fields
+
+    // {
+    //   field: "paymentDate",
+    //   headerName: "Payment Recieved Date",
+    //   minWidth: 200,
+    //   flex: 1,
+    //   renderCell: (params) => {
+    //     let inputValue = "";
+    //     if (params.row.paymentDate) {
+    //       const dateObj = new Date(params.row.paymentDate);
+    //       if (!isNaN(dateObj.getTime())) {
+
+    //         inputValue = dateObj.toISOString().split("T")[0];
+    //       }
+    //     }
+
+    //     return (
+    //       <div>
+    //         <TextField
+    //           size="small"
+    //           fullWidth
+    //           type="date"
+    //           sx={{ mt: 0.625 }} // 5px margin top
+    //           value={inputValue}
+    //           disabled={statusFilter !== "Pending"}
+    //           onChange={(e) => {
+    //             params.api.updateRows([
+    //               { ...params.row, paymentDate: e.target.value }
+    //             ]);
+    //           }}
+    //           InputLabelProps={{ shrink: true }}
+    //         />
+
+    //       </div>
+    //     );
+    //   },
+    // },
+    {
+      field: "paymentDate",
+      headerName: "Payment Recieved Date",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => {
+        // Use moment for value, fallback to null
+        const value = params.row.paymentDate
+          ? moment(params.row.paymentDate, "YYYY-MM-DD", true).isValid()
+            ? moment(params.row.paymentDate)
+            : null
+          : null;
+
+        return (
+          <DatePicker
+            format="DD-MM-YYYY"
+            value={value}
+            style={{ width: "100%", marginTop: 5 }}
+            disabled={statusFilter !== "Pending"}
+            onChange={(date) => {
+              params.api.updateRows([
+                {
+                  ...params.row,
+                  paymentDate: date ? date.format("YYYY-MM-DD") : "",
+                },
+              ]);
+            }}
+            allowClear
+            disabledDate={(current) =>
+              current && current > moment().endOf("day")
+            }
+          />
+        );
+      },
+    },
+
+    {
+      field: "paymentValue",
+      headerName: "Amount Recieved",
+      type: "number",
+      minWidth: 170,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          type="number"
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.paymentValue || ""}
+          disabled={statusFilter !== "Pending"}
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "-" || e.key === "+") {
+              e.preventDefault(); // block minus, plus
+            }
+          }}
+          onChange={(e) => {
+            const value = e.target.value;
+
+            if (value === "") {
+              params.api.updateRows([{ ...params.row, paymentValue: "" }]);
+              return;
+            }
+
+            if (parseFloat(value) > 0) {
+              params.api.updateRows([{ ...params.row, paymentValue: value }]);
+            } else {
+              alert("Payment Value must be greater than 0.");
+            }
+          }}
+        />
+      ),
+    },
+    {
+      field: "InvoiceTotalPaymentRecieved",
+      headerName: "Total Recieved Payment Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "invoiceTotalPendingAmount",
+      headerName: "Total Pending Payment Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+
+    {
+      field: "comments",
+      headerName: "Comments",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.comments || ""}
+          disabled={statusFilter !== "Pending"}
+          onChange={(e) => {
+            params.api.updateRows([
+              { ...params.row, comments: e.target.value },
+            ]);
+          }}
+        />
+      ),
+    },
+    {
+      field: "contractNo",
+      headerName: "Contract ID (Request ID)",
+      minWidth: 130,
+      flex: 1,
+      renderCell: (params: any) => {
+        return (
+          <Stack direction="row" spacing={1}>
+            <a
+              href="#"
+              style={{
+                cursor: "pointer",
+                color: "#1976d2",
+                textDecoration: "underline",
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleShoworm(params.row.id, params.row);
+              }}
+            >
+              {params.row.contractNo}
+            </a>
+          </Stack>
+        );
+      },
+      editable: false,
+      // hideable: true,
+    },
+    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
+    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
+    {
+      field: "action",
+      headerName: " ",
+
+      minWidth: 280,
+      flex: 1,
+      renderCell: (params) =>
+        statusFilter === "Done" ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+                marginRight: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
+            {/* <Button
+              variant="outlined"
+              style={{ color: "#1976d2", borderColor: "#1976d2" }}
+              onClick={() => handleHistoryClick(params.row)}
+            >
+              <FontAwesomeIcon
+                            icon={faClockRotateLeft}
+                            title="Payment History"
+                          />
+            </Button> */}
+            {params.row.InvoiceTotalPaymentRecieved > 0 && (
+              <Button
+                variant="outlined"
+                style={{
+                  color: "#1976d2",
+                  borderColor: "#1976d2",
+                  marginLeft: "10px",
+                }}
+                onClick={() => handleHistoryClick(params.row)}
+              >
+                <FontAwesomeIcon
+                  icon={faClockRotateLeft}
+                  title="Payment History"
+                />
+              </Button>
+            )}
+          </Stack>
+        ) : editableRowId === params.row.id ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+            {/* <Button
+              variant="outlined"
+              style={{ color: "#1976d2", borderColor: "#1976d2" }}
+            >
+              <FontAwesomeIcon
+                            icon={faClockRotateLeft}
+                            title="Payment History"
+                          />
+            </Button> */}
+            {params.row.InvoiceTotalPaymentRecieved > 0 && (
+              <Button
+                variant="outlined"
+                style={{
+                  color: "#1976d2",
+                  borderColor: "#1976d2",
+                  marginLeft: "10px",
+                }}
+                onClick={() => handleHistoryClick(params.row)}
+              >
+                <FontAwesomeIcon
+                  icon={faClockRotateLeft}
+                  title="Payment History"
+                />
+              </Button>
+            )}
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+            <Button
+              variant="contained"
+              // color="primary"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
+          </Stack>
+        ),
+    },
+  ];
+
+  // Add columns for "Credit Note Pending"
+  const creditNotePendingColumns: GridColDef[] = [
+    {
+      field: "contractNo",
+      headerName: "Contract No",
+      minWidth: 130,
+      flex: 1,
+      renderCell: (params: any) => (
+        <Stack direction="row" spacing={1}>
+          <a
+            href="#"
+            style={{
+              cursor: "pointer",
+              color: "#1976d2",
+              textDecoration: "underline",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              handleShoworm(params.row.id, params.row);
+            }}
+          >
+            {params.row.contractNo}
+          </a>
+        </Stack>
+      ),
+      editable: false,
+    },
+    {
+      field: "customerName",
+      headerName: "Customer Name",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "productType",
+      headerName: "Product Type",
+      minWidth: 140,
+      flex: 1,
+    },
+    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
+    { field: "poAmount", headerName: "Po Amount", minWidth: 130, flex: 1 },
+    {
+      field: "upcomingInvoice",
+      headerName: "UpComing Invoice Date",
+      minWidth: 150,
+      flex: 1,
+    },
+    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
+    { field: "workTitle", headerName: "Work Title", minWidth: 150, flex: 1 },
+
+    {
+      field: "TotalPaymentRecieved",
+      headerName: "Invoice Recieved Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+    {
+      field: "TotalPendingAmount",
+      headerName: "Invoice Pending Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+    {
+      field: "InvoiceTaxAmount",
+      headerName: "Total Invoice Tax Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+      valueFormatter: twoDecimalFormatter,
+    },
+  ];
+  // Filter rows for "Credit Note Pending"
+  const creditNotePendingRows: RowData[] =
+    financeFilter === "Credit Note Pending"
+      ? statusFilter === "Pending"
+        ? invoiceRows.filter((row) => row.prevInvoiceStatus === "Generated")
+        : invoiceRows.filter(
+            (row) => row.invoiceStatus === "Credit Note Uploaded"
+          )
+      : [];
+
+  // Loader overlay
+  const LoaderOverlay = () => (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(255,255,255,0.6)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Spinner animation="border" variant="primary" />
+      <span className="ms-3">Processing...</span>
+    </div>
+  );
+
+  const handleRowUpdate = (newRow: any, oldRow: any) => {
+    // Validate paymentValue for non-negative, non-zero
+
+    // Do any necessary validation or merging here
+    const updatedRow = { ...oldRow, ...newRow };
+
+    // Optionally persist or validate file input
+    if (newRow.invoiceAttachment instanceof File) {
+      // Save it to backend or local state as needed
+      console.log("File attached:", newRow.invoiceAttachment);
+    }
+
+    return updatedRow; // Must return updated row
+  };
+  const handleAttachmentChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    row: any
+  ) => {
+    event.preventDefault();
+    const file = event.target.files?.[0];
+    if (file) {
+      setRowFiles((prev) => ({ ...prev, [row.id]: file }));
+      alert(`File "${file.name}" is selected.`);
+    } else {
+      setRowFiles((prev) => {
+        const updated = { ...prev };
+        delete updated[row.id];
+        return updated;
+      });
+
+      setTimeout(() => {
+        const grid = document.querySelector(`[data-id="${row.id}"]`);
+        if (grid) {
+        }
+      }, 0);
+    }
+  };
+
+  // const handleEmailSentDateChange = (
+  //   event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  //   row: any
+  // ) => {
+  //   const selectedDate = event.target.value;
+
+  //   // console.log("Email Sent Date for row", row.id, selectedDate);
+  // };
+
+  // const handleGenerateInvoice = (row: any) => {
+  //   // console.log("Generate Invoice for", row.id, row);
+  // };
+
+  // console.log(handleEmailSentDateChange, handleGenerateInvoice);
+
+  const handleSaveClick = (row: any) => {
+    setEditableRowId(null);
+    console.log("Save clicked for row ID:", row);
+
+    void updateInvoiceDetails(row, rowFiles[row.id]);
+  };
+
+  const updateInvoiceDetails = async (row: any, file?: File) => {
+    if (financeFilter === "Invoice Pending") {
+      setIsLoading(true);
+      // console.log("update button clicked", row);
+
+      if (!file) {
+        setIsLoading(false);
+        alert(
+          "Please select a file before saving. File selection is mandatory."
+        );
+        return;
+      }
+
+      if (
+        !row.invoiceInvoicNo ||
+        !row.invoiceInvoiceDate ||
+        !row.taxInvoiceAmount
+      ) {
+        setIsLoading(false);
+        alert(
+          "Invoice No, Invoice Date, and Tax Invoice Value are mandatory. Please fill all required fields."
+        );
+        return;
+      }
+      if (Number(row.taxInvoiceAmount) < Number(row.invoiceAmount)) {
+        setIsLoading(false);
+        alert(
+          "Tax Invoice Value must be greater than or equal to Invoice Amount."
+        );
+        return;
+      }
+
+      // console.log(row.taxInvoiceAmount, row.invoiceAmount, "row.invoiceAmount");
+      const invoiceExists = await checkInvoiceNo(row.invoiceInvoicNo);
+
+      if (invoiceExists) {
+        setIsLoading(false);
+        alert(
+          "This Invoice No already exists. Please enter a unique Invoice No."
+        );
+        return;
+      }
+
+      let uploadedFileResult = null;
+      const generatedUID = Math.random()
+        .toString(36)
+        .substr(2, 16)
+        .toUpperCase();
+
+      try {
+        // const claimNo = row.contractNo + "-" + row.invoiceClaimNo;
+        // console.log(row.contractNo, row.invoiceClaimNo, claimNo, "claimNo");
+        // You can adjust metadata, filterQuery, selectedValues as needed
+        const metadata = {
+          //  DocID: row.docID,
+          DocID: generatedUID,
+          ClaimNo: row.contractNo,
+        };
+        // console.log(metadata, "metadata");
+        uploadedFileResult = await uploadFileWithMetadata(
+          file,
+          metadata,
+          CMSInvoiceDocuments
+        );
+
+        console.log(
+          "File uploaded to SharePoint:",
+          uploadedFileResult,
+          metadata
+        );
+
+        // After successful file upload, update the SharePoint list item
+
+        const updatedata = {
+          InvoiceStatus: "Generated",
+          InvoicNo: row.invoiceInvoicNo,
+          InvoiceDate: row.invoiceInvoiceDate,
+          InvoiceTaxAmount: Number(row.taxInvoiceAmount),
+          // InvoiceFileID: row.docID,
+          InvoiceFileID: generatedUID,
+          TotalPendingAmount: Number(row.taxInvoiceAmount),
+        };
+
+        // console.log("updatedata", updatedata);
+        try {
+          const updatedData = await updateDataToSharePoint(
+            InvoicelistName,
+            updatedata,
+            siteUrl,
+            row.invoiceInvoiceID
+          );
+          console.log("updatedata", updatedData);
+
+          if (props.refreshCmsDetails) {
+            await props.refreshCmsDetails();
+          }
+
+          await refreshInvoiceDocuments();
+          setIsLoading(false);
+          alert("Invoice Generated Successfully.");
+        } catch (error) {
+          setIsLoading(false);
+          console.error("Failed to update request:", error);
+          alert(
+            "Something went wrong while sending your edit request. Please try again."
+          );
+        }
+      } catch (error) {
+        setIsLoading(false);
+        console.error("File upload failed:", error);
+        alert("File upload failed. Please try again.");
+        return;
+      }
+    } else if (financeFilter === "Payment Pending") {
+      setIsLoading(true);
+      if (!row.paymentDate || !row.paymentValue) {
+        setIsLoading(false);
+        alert(
+          "Payment Date and Payment Value are mandatory. Please fill all required fields."
+        );
+        return;
+      }
+
+      // console.log("update payment button clicked", row);
+      // console.log(row.id, "row.id");
+      const CMSRequestItemID = row.id.split("-")[0];
+      const CMSInvoiceDetailIndex = row.id.split("-")[1];
+
+      let isInvoicePaymentReceived = "";
+      let PaymentAmount: number = Number(row.paymentValue);
+      let totalRecievedAmount =
+        row.invoiceDetails[CMSInvoiceDetailIndex].TotalPaymentRecieved || 0;
+      let TaxAmount = row.taxInvoiceAmount;
+      // let totalPendingAmount =
+      //   row.invoiceDetails[CMSInvoiceDetailIndex].TotalPendingAmount || 0;
+      // console.log(totalPendingAmount);
+      totalRecievedAmount = Number(totalRecievedAmount).toFixed(2);
+      PaymentAmount = Math.round(Number(PaymentAmount) * 100) / 100;
+      let InvoiceRecievedAmount =
+        Number(totalRecievedAmount) + Number(PaymentAmount);
+      // let InvoicePendingAmount = Number(TaxAmount) - Number(InvoiceRecievedAmount);
+      const InvoicePendingAmount = Number(
+        (Number(TaxAmount) - Number(InvoiceRecievedAmount)).toFixed(2)
+      );
+      if (
+        Number(InvoiceRecievedAmount.toFixed(2)) > Number(TaxAmount.toFixed(2))
+      ) {
+        setIsLoading(false);
+        alert(
+          "Payment Value cannot be greater than the pending amount for this invoice."
+        );
+        return;
+      }
+
+      if (InvoiceRecievedAmount === 0) {
+        setIsLoading(false);
+        alert("Payment Value cannot be 0.");
+        return;
+      }
+
+      if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
+        isInvoicePaymentReceived = "Yes";
+      }
+
+      const updatedata = {
+        PaymentDate: row.paymentDate,
+        CMSRequestItemID: row.invoiceInvoiceID,
+        CMSRequestID: CMSRequestItemID,
+        ClaimNo: row.ClaimNo,
+        InvoiceTaxAmount: row.taxInvoiceAmount,
+        PaymentAmount: Number(PaymentAmount),
+        PendingAmount: InvoicePendingAmount,
+        UID: row.UID,
+        Comment: row.comments,
+      };
+
+      const updateInvoicedata = {
+        TotalPaymentRecieved: InvoiceRecievedAmount,
+        TotalPendingAmount: InvoicePendingAmount,
+        PaymentStatus: isInvoicePaymentReceived,
+      };
+
+      const updateRequestmetadata = {
+        IsPaymentReceived: "Yes",
+        RunWF: "Yes",
+      };
+
+      try {
+        const updatedData = await saveDataToSharePoint(
+          PaymentHistoryListName,
+          updatedata,
+          siteUrl
+        );
+
+        const updatedInvoiceData = await updateDataToSharePoint(
+          InvoicelistName,
+          updateInvoicedata,
+          siteUrl,
+          row.invoiceInvoiceID
+        );
+
+        if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
+          // const filterQuery = `$select=*&$filter=TotalPendingAmount ge 1 and RequestID eq ${CMSRequestItemID}`;
+          const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
+          const data = await getSharePointData(
+            props,
+            InvoicelistName,
+            filterQuery
+          );
+
+          // console.log(data, "checkdata");
+
+          if (data.length == 0) {
+            // console.log(updateRequestmetadata);
+            const updateRequestdata = await updateDataToSharePoint(
+              MainList,
+              updateRequestmetadata,
+              siteUrl,
+              CMSRequestItemID
+            );
+            console.log(
+              "updatedata",
+              updatedData,
+              updatedInvoiceData,
+              updateRequestdata
+            );
+          }
+        }
+
+        // console.log("updatedata", updatedData, updatedInvoiceData);
+
+        if (props.refreshCmsDetails) {
+          await props.refreshCmsDetails();
+        }
+        setIsLoading(false);
+        alert("Payment Added Successfully.");
+      } catch (error) {
+        setIsLoading(false);
+        console.error("Failed to update request:", error);
+        alert(
+          "Something went wrong while sending your edit request. Please try again."
+        );
+      }
+    } else {
+    }
+  };
+
+  const pendingPaymentColumns: GridColDef[] = [
+    {
+      field: "customerName",
+      headerName: "Customer Name",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "invoiceInvoicNo",
+      headerName: "Invoice No",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+
+    {
+      field: "taxInvoiceAmount",
+      headerName: "Tax Invoice Value",
+      minWidth: 150,
+      flex: 1,
+      editable: false,
+    },
+    // Editable fields
+
+    // {
+    //   field: "paymentDate",
+    //   headerName: "Payment Recieved Date",
+    //   minWidth: 200,
+    //   flex: 1,
+    //   renderCell: (params) => {
+    //     let inputValue = "";
+    //     if (params.row.paymentDate) {
+    //       const dateObj = new Date(params.row.paymentDate);
+    //       if (!isNaN(dateObj.getTime())) {
+
+    //         inputValue = dateObj.toISOString().split("T")[0];
+    //       }
+    //     }
+
+    //     return (
+    //       <div>
+    //         <TextField
+    //           size="small"
+    //           fullWidth
+    //           type="date"
+    //           sx={{ mt: 0.625 }} // 5px margin top
+    //           value={inputValue}
+    //           disabled={statusFilter !== "Pending"}
+    //           onChange={(e) => {
+    //             params.api.updateRows([
+    //               { ...params.row, paymentDate: e.target.value }
+    //             ]);
+    //           }}
+    //           InputLabelProps={{ shrink: true }}
+    //         />
+
+    //       </div>
+    //     );
+    //   },
+    // },
+    {
+      field: "paymentDate",
+      headerName: "Payment Recieved Date",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => {
+        // Use moment for value, fallback to null
+        const value = params.row.paymentDate
+          ? moment(params.row.paymentDate, "YYYY-MM-DD", true).isValid()
+            ? moment(params.row.paymentDate)
+            : null
+          : null;
+
+        return (
+          <DatePicker
+            format="DD-MM-YYYY"
+            value={value}
+            style={{ width: "100%", marginTop: 5 }}
+            disabled={statusFilter !== "Pending"}
+            onChange={(date) => {
+              params.api.updateRows([
+                {
+                  ...params.row,
+                  paymentDate: date ? date.format("YYYY-MM-DD") : "",
+                },
+              ]);
+            }}
+            allowClear
+            disabledDate={(current) =>
+              current && current > moment().endOf("day")
+            }
+          />
+        );
+      },
+    },
+
+    {
+      field: "paymentValue",
+      headerName: "Amount Recieved",
+      type: "number",
+      minWidth: 170,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          type="number"
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.paymentValue || ""}
+          disabled={statusFilter !== "Pending"}
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "-" || e.key === "+") {
+              e.preventDefault(); // block minus, plus
+            }
+          }}
+          onChange={(e) => {
+            const value = e.target.value;
+
+            if (value === "") {
+              params.api.updateRows([{ ...params.row, paymentValue: "" }]);
+              return;
+            }
+
+            if (parseFloat(value) > 0) {
+              params.api.updateRows([{ ...params.row, paymentValue: value }]);
+            } else {
+              alert("Payment Value must be greater than 0.");
+            }
+          }}
+        />
+      ),
+    },
+    {
+      field: "InvoiceTotalPaymentRecieved",
+      headerName: "Total Recieved Payment Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "invoiceTotalPendingAmount",
+      headerName: "Total Pending Payment Amount",
+      type: "number",
+      minWidth: 130,
+      flex: 1,
+      editable: false,
+    },
+
+    {
+      field: "comments",
+      headerName: "Comments",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.comments || ""}
+          disabled={statusFilter !== "Pending"}
+          onChange={(e) => {
+            params.api.updateRows([
+              { ...params.row, comments: e.target.value },
+            ]);
+          }}
+        />
+      ),
+    },
+    {
+      field: "contractNo",
+      headerName: "Contract ID (Request ID)",
+      minWidth: 130,
+      flex: 1,
+      renderCell: (params: any) => {
+        return (
+          <Stack direction="row" spacing={1}>
+            <a
+              href="#"
+              style={{
+                cursor: "pointer",
+                color: "#1976d2",
+                textDecoration: "underline",
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleShoworm(params.row.id, params.row);
+              }}
+            >
+              {params.row.contractNo}
+            </a>
+          </Stack>
+        );
+      },
+      editable: false,
+      // hideable: true,
+    },
+    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
+    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
+    {
+      field: "action",
+      headerName: " ",
+
+      minWidth: 280,
+      flex: 1,
+      renderCell: (params) =>
+        statusFilter === "Done" ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+                marginRight: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
+            {/* <Button
+              variant="outlined"
+              style={{ color: "#1976d2", borderColor: "#1976d2" }}
+              onClick={() => handleHistoryClick(params.row)}
+            >
+              <FontAwesomeIcon
+                            icon={faClockRotateLeft}
+                            title="Payment History"
+                          />
+            </Button> */}
+            {params.row.InvoiceTotalPaymentRecieved > 0 && (
+              <Button
+                variant="outlined"
+                style={{
+                  color: "#1976d2",
+                  borderColor: "#1976d2",
+                  marginLeft: "10px",
+                }}
+                onClick={() => handleHistoryClick(params.row)}
+              >
+                <FontAwesomeIcon
+                  icon={faClockRotateLeft}
+                  title="Payment History"
+                />
+              </Button>
+            )}
+          </Stack>
+        ) : editableRowId === params.row.id ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+            {/* <Button
+              variant="outlined"
+              style={{ color: "#1976d2", borderColor: "#1976d2" }}
+            >
+              <FontAwesomeIcon
+                            icon={faClockRotateLeft}
+                            title="Payment History"
+                          />
+            </Button> */}
+            {params.row.InvoiceTotalPaymentRecieved > 0 && (
+              <Button
+                variant="outlined"
+                style={{
+                  color: "#1976d2",
+                  borderColor: "#1976d2",
+                  marginLeft: "10px",
+                }}
+                onClick={() => handleHistoryClick(params.row)}
+              >
+                <FontAwesomeIcon
+                  icon={faClockRotateLeft}
+                  title="Payment History"
+                />
+              </Button>
+            )}
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+            <Button
+              variant="contained"
+              // color="primary"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
           </Stack>
         ),
     },
@@ -1322,359 +3481,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
       headerName: "Contract No",
       minWidth: 130,
       // pinned: 'left',
-      flex: 1,
-      renderCell: (params: any) => {
-        return (
-          <Stack direction="row" spacing={1}>
-            <a
-              href="#"
-              style={{
-                cursor: "pointer",
-                color: "#1976d2",
-                textDecoration: "underline",
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                handleShoworm(params.row.id, params.row);
-              }}
-            >
-              {params.row.contractNo}
-            </a>
-          </Stack>
-        );
-      },
-      editable: false,
-    },
-    {
-      field: "customerName",
-      headerName: "Customer Name",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "customerEmail",
-      headerName: "Customer Email",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
-    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
-    {
-      field: "poAttachment",
-      headerName: "PO Attachment",
-      minWidth: 160,
-      flex: 1,
-      editable: false,
-      renderCell: (params: any) => (
-        // params.row.poDocuments && params.row.poDocuments.length > 0 ? (
-        <>
-          <React.Fragment key={params.row.FileID}>
-            <a
-              href={params.row.poEncodedAbsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              download={params.row.poFileLeafRef}
-              style={{
-                color: "#1976d2",
-                textDecoration: "underline",
-                cursor: "pointer",
-              }}
-            >
-              {params.row.poFileLeafRef}
-            </a>
-            {/* {idx < params.row.poDocuments.length - 1 && ", "} */}
-          </React.Fragment>
-          {/* ) */}
-          {/* )} */}
-        </>
-      ),
-      // ) : (
-      //   <span style={{ color: "#888" }}>No PO File</span>
-      // ),
-    },
-
-    {
-      field: "invoiceComments",
-      headerName: "Invoice Description",
-      minWidth: 120,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "invoiceAmount",
-      headerName: "Invoice Amount",
-      minWidth: 150,
-      flex: 1,
-      editable: false,
-      // valueFormatter: twoDecimalFormatter
-    },
-    // editable fields
-    // {
-    //   field: "invoiceAttachment",
-    //   headerName: "Invoice Attachment",
-    //   minWidth: 160,
-    //   flex: 1,
-    //   renderCell: (params) => (
-    //     <div style={{ width: "100%" }}>
-    //       <Button variant="outlined" component="label" size="small" fullWidth>
-    //         Upload
-    //         <input
-    //           type="file"
-    //           hidden
-    //           onChange={(e) => handleAttachmentChange(e, params.row)}
-    //         />
-    //       </Button>
-    //       {/* Show selected file name if exists */}
-    //       {rowFiles[params.row.id] && (
-    //         <Typography
-    //           variant="caption"
-    //           sx={{ display: "block", mt: 1, wordBreak: "break-all" }}
-    //         >
-    //           {rowFiles[params.row.id].name}
-    //         </Typography>
-    //       )}
-    //       {/* Use fileVersion to force re-render */}
-    //       <span style={{ display: "none" }}>{params.row.fileVersion}</span>
-    //     </div>
-    //   ),
-    // },
-    // ...existing code...
-    {
-      field: "invoiceAttachment",
-      headerName: "Invoice Attachment",
-      minWidth: 350,
-      flex: 1,
-      renderCell: (params) => (
-        <div style={{ width: "100%" }}>
-          <input
-            type="file"
-            // style={{ width: "100%" }}
-            className="form-control"
-            style={{
-              marginTop: "5px",
-            }}
-            onChange={(e) => handleAttachmentChange(e, params.row)}
-          />
-          <Typography
-            variant="caption"
-            sx={{ display: "none", mt: 1, wordBreak: "break-all" }}
-          >
-            {rowFiles[params.row.id]?.name || ""}
-          </Typography>
-          {/* Use fileVersion to force re-render */}
-          <span style={{ display: "none" }}>{params.row.fileVersion}</span>
-        </div>
-      ),
-    },
-
-    {
-      field: "invoiceInvoicNo",
-      headerName: "Invoice No",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.invoiceInvoicNo || ""}
-          disabled={!rowFiles[params.row.id]}
-          onChange={(e) => {
-            params.api.updateRows([
-              { ...params.row, invoiceInvoicNo: e.target.value },
-            ]);
-          }}
-        />
-      ),
-    },
-    // {
-    //   field: "invoiceInvoiceDate",
-    //   headerName: "Invoice Date",
-    //   minWidth: 200,
-    //   flex: 1,
-    //   renderCell: (params) => {
-
-    //     let inputValue = "";
-    //     if (params.row.invoiceInvoiceDate) {
-    //       const dateObj = new Date(params.row.invoiceInvoiceDate);
-    //       if (!isNaN(dateObj.getTime())) {
-    //         inputValue = dateObj.toISOString().split("T")[0];
-    //       }
-    //     }
-    //     return (
-    //       <div>
-    //         <TextField
-    //           size="small"
-    //           fullWidth
-    //           type="date"
-    //           sx={{ mt: 0.625 }} // 5px margin top
-    //           value={inputValue}
-    //           disabled={!rowFiles[params.row.id]}
-    //           onChange={(e) => {
-    //             params.api.updateRows([
-    //               { ...params.row, invoiceInvoiceDate: e.target.value }
-    //             ]);
-    //           }}
-    //           InputLabelProps={{ shrink: true }}
-    //         />
-
-    //       </div>
-    //     );
-    //   },
-    // },
-    {
-      field: "invoiceInvoiceDate",
-      headerName: "Invoice Date",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => {
-        // Use moment for value, fallback to null
-        const value = params.row.invoiceInvoiceDate
-          ? moment(params.row.invoiceInvoiceDate, "YYYY-MM-DD", true).isValid()
-            ? moment(params.row.invoiceInvoiceDate)
-            : null
-          : null;
-
-        return (
-          <DatePicker
-            format="DD-MM-YYYY"
-            value={value}
-            style={{ width: "100%", marginTop: 5 }}
-            disabled={!rowFiles[params.row.id]}
-            onChange={(date) => {
-              params.api.updateRows([
-                {
-                  ...params.row,
-                  invoiceInvoiceDate: date ? date.format("YYYY-MM-DD") : "",
-                },
-              ]);
-            }}
-            allowClear
-            // Optionally restrict future dates:
-            disabledDate={(current) =>
-              current && current > moment().endOf("day")
-            }
-          />
-        );
-      },
-    },
-
-    {
-      field: "taxInvoiceAmount",
-      headerName: "Tax Invoice Value",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          type="number"
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.taxInvoiceAmount || ""}
-          disabled={!rowFiles[params.row.id]}
-          onChange={(e) => {
-            const value = e.target.value;
-
-            if (parseFloat(value) > 0) {
-              params.api.updateRows([
-                { ...params.row, taxInvoiceAmount: value },
-              ]);
-            } else {
-              alert("Invoice Tax Amount must be greater than 0.");
-            }
-          }}
-        />
-      ),
-    },
-    {
-      field: "action",
-      headerName: "Action",
-      minWidth: 280,
-      flex: 1,
-      renderCell: (params) =>
-        statusFilter === "Done" ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              // color="primary"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-                marginRight: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
-          </Stack>
-        ) : editableRowId === params.row.id ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              // color="primary"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-          </Stack>
-        ) : (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              // color="primary"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-
-            <Button
-              variant="contained"
-              // color="primary"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
-          </Stack>
-        ),
-    },
-  ];
-
-  const invoiceColumns: GridColDef[] = [
-    {
-      field: "id",
-      headerName: "ID",
-      minWidth: 90,
-      flex: 1,
-      editable: false,
-      // hideable: true,
-    },
-
-    {
-      field: "contractNo",
-      headerName: "Contract No",
-      minWidth: 130,
       flex: 1,
       renderCell: (params: any) => {
         return (
@@ -1987,16 +3793,19 @@ const Dashboard = (props: ICmsRebuildProps) => {
       projectMangerTitle: item.ProjectManager?.Title || "",
       projectLeadEmail: item.ProjectLead?.EMail || "",
       projectLeadTitle: item.ProjectLead?.Title || "",
+
       docID: item.UID,
       invoiceDetails: item.invoiceDetails,
       currency: item.Currency,
-      approverStatus: item.ApproverStatus,
       startDate: item.StartDateResource,
       endDate: item.EndDateResource,
       invoiceCriteria: item.InvoiceCriteria,
       TotalPaymentRecieved: Number(item.TotalPaymentRecieved ?? 0),
       TotalPendingAmount: Number(item.TotalPendingAmount ?? 0),
       InvoiceTaxAmount: Number(item.InvoiceTaxAmount ?? 0),
+      approverStatus: item.ApproverStatus,
+      approverComment: item.ApproverComment,
+      selectedSections: item.SelectedSections,
     }));
 
   const requestorRows: RowData[] = rows.filter(
@@ -2017,6 +3826,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
             TotalPaymentRecieved: any;
             TotalPendingAmount: any;
             InvoiceStatus: any;
+            PrevInvoiceStatus: any;
             InvoiceAmount: any;
             InvoiceFileID: any;
             ClaimNo: any;
@@ -2085,6 +3895,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
             approverStatus: item.ApproverStatus,
             isPaymentReceived: item.IsPaymentReceived,
             invoiceStatus: detail.InvoiceStatus,
+            prevInvoiceStatus: detail.PrevInvoiceStatus,
             invoiceAmount: detail.InvoiceAmount,
             paymentStatus: detail.PaymentStatus,
             invoiceComments: detail.Comments,
@@ -2520,7 +4331,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
                   </Box>
                 )}
             </Box>
-          )} */}
+          ) */}
 
           {userGroups.includes("CMSAccountGroup") && (
             <Box
@@ -2556,6 +4367,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
                 >
                   <option value="Invoice Pending">Invoice</option>
                   <option value="Payment Pending">Payment</option>
+                  <option value="Credit Note Pending">Credit Note</option>
                 </select>
 
                 {/* Status label and radio buttons in a single row */}
@@ -2884,89 +4696,4 @@ const Dashboard = (props: ICmsRebuildProps) => {
                     <th>Payment Date</th>
                     <th>Payment Amount</th>
                     <th>Pending Amount</th>
-                    <th>Remarks</th>
-                    <th>Financer Name</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoiceHistoryData.map((item, index) => (
-                    <tr key={item.Id}>
-                      <td>{index + 1}</td>
-                      <td>{item.InvoiceTaxAmount}</td>
-                      <td>
-                        {item.PaymentDate
-                          ? moment(item.PaymentDate).format("DD-MM-YYYY")
-                          : ""}
-                      </td>
-                      <td>{item.PaymentAmount}</td>
-                      <td>{item.PendingAmount}</td>
-                      <td>{item.Comment}</td>
-                      <td>{item.FinancerName || ""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center text-danger fw-bold">
-              No payment received on this invoice.
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <BootstrapButton
-            variant="secondary"
-            onClick={() => setShowHistoryModal(false)}
-          >
-            Close
-          </BootstrapButton>
-        </Modal.Footer>
-      </Modal>
-    </Box>
-  );
-};
-
-export default Dashboard;
-
-// Fetch all items from ContractDocument library with selected fields
-const fetchAllContractDocuments = async (siteUrl: string) => {
-  const selectFields =
-    "Id, FileLeafRef, FileID, FileRef, AttachmentType, EncodedAbsUrl";
-  const libraryName = "ContractDocument";
-  const filterQuery = `$filter=AttachmentType eq 'Po'&$top=5000`;
-  // const filterQuery = "";
-
-  try {
-    const response = await getDocumentLibraryDataWithSelect(
-      libraryName,
-      filterQuery,
-      selectFields,
-      siteUrl
-    );
-    console.log("All ContractDocument items:", response);
-    return response;
-  } catch (error) {
-    console.error("Error fetching ContractDocument items:", error);
-    return [];
-  }
-};
-
-const fetchAllInvoiceDocuments = async (siteUrl: string) => {
-  const selectFields = "Id, FileLeafRef, FileRef,EncodedAbsUrl,DocID";
-  const libraryName = "InvoiceDocument";
-  const filterQuery = `$top=5000`;
-
-  try {
-    const response = await getDocumentLibraryDataWithSelect(
-      libraryName,
-      filterQuery,
-      selectFields,
-      siteUrl
-    );
-    console.log("All INVOICE items:", response);
-    return response;
-  } catch (error) {
-    console.error("Error fetching invvoice Document items:", error);
-    return [];
-  }
-};
+                    <
