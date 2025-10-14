@@ -24,6 +24,7 @@ export default function ListDetail({
     const [rows, setRows] = useState<any[]>([]);
     const [columns, setColumns] = useState<GridColDef[]>([]);
     const [loading, setLoading] = useState(false);
+    const [unsavedChanges, setUnsavedChanges] = useState(false);
     const siteUrl = props.context.pageContext.web.absoluteUrl;
 
     // 🔹 Keep latest columns accessible in event handlers
@@ -78,6 +79,7 @@ export default function ListDetail({
                                             r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
                                         )
                                     );
+                                    setUnsavedChanges(true);
                                 }}
                             >
                                 <option value="">--Select--</option>
@@ -103,6 +105,7 @@ export default function ListDetail({
                                             r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
                                         )
                                     );
+                                    setUnsavedChanges(true);
                                 }}
                             />
                         );
@@ -128,6 +131,7 @@ export default function ListDetail({
                                             r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
                                         )
                                     );
+                                    setUnsavedChanges(true);
                                 }}
                             />
                         );
@@ -141,7 +145,17 @@ export default function ListDetail({
                                 variant="outlined"
                                 size="small"
                                 fullWidth
+                                slotProps={{
+                                    htmlInput: {
+                                        min: 0, // 🔹 Prevent negative numbers
+                                    },
+                                }}
                                 value={params.row[field.InternalName] || ""}
+                                onKeyDown={(e) => {
+                                    if (e.key === "-" || e.key === "e" || e.key === "+") {
+                                        e.preventDefault(); // prevent entering negative or invalid chars
+                                    }
+                                }}
                                 onChange={(e) => {
                                     const newValue = e.target.value === "" ? "" : Number(e.target.value);
                                     setRows((prev) =>
@@ -149,6 +163,7 @@ export default function ListDetail({
                                             r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
                                         )
                                     );
+                                    setUnsavedChanges(true);
                                 }}
                             />
                         );
@@ -163,12 +178,15 @@ export default function ListDetail({
                                 fullWidth
                                 value={params.row[params.field] || ""}
                                 onChange={(e) => {
-                                    const newValue = e.target.value; // take input as-is
+                                    let newValue = e.target.value;
+                                    // Replace consecutive spaces with a single space
+                                    newValue = newValue.replace(/\s{2,}/g, ' ');
                                     setRows((prev) =>
                                         prev.map((r) =>
                                             r.id === params.row.id ? { ...r, [params.field]: newValue } : r
                                         )
                                     );
+                                    setUnsavedChanges(true);
                                 }}
                                 onKeyDown={(e) => {
                                     e.stopPropagation(); // 🔹 Prevent DataGrid from handling SPACE (and other keys)
@@ -261,6 +279,19 @@ export default function ListDetail({
         rowsRef.current = rows;
     }, [rows]);
 
+    // Warn user of unsaved changes before leaving
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (unsavedChanges) {
+                e.preventDefault();
+                e.returnValue = "Please save your context as you leave the page.";
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [unsavedChanges]);
+
+
     const handleSave = async (rowId: string | number) => {
         const currentRows = rowsRef.current;
 
@@ -277,6 +308,25 @@ export default function ListDetail({
 
             // Find the row in the latest state
             const actualRow = currentRows.find((r) => String(r.id) === String(rowId));
+
+            //negative values check
+
+            // 🔹 Validate Title is not empty
+            if (!actualRow.Title || actualRow.Title.trim() === "") {
+                alert("⚠️ Title cannot be empty. Please enter a valid title before saving.");
+                return;
+            }
+
+
+            // // 🔹 Prevent negative DiscountPercentage / SupportValue
+            // const invalidFields: string[] = [];
+            // if (actualRow.DiscountPercentage < 0) invalidFields.push("Discount Percentage");
+            // if (actualRow.SupportValue < 0) invalidFields.push("Support Value");
+            // if (invalidFields.length > 0) {
+            //     alert(`⚠️ Negative values are not allowed for: ${invalidFields.join(", ")}.`);
+            //     return;
+            // }
+
             if (!actualRow) {
                 console.error("❌ No matching row found for id:", rowId);
                 alert("Could not find updated data for this row!");
@@ -342,6 +392,7 @@ export default function ListDetail({
             );
 
             alert("✅ Saved successfully!");
+            setUnsavedChanges(false);
         } catch (error: any) {
             console.error("❌ Save failed:", error);
             alert("Failed to save. Check console for details.");
@@ -460,7 +511,14 @@ export default function ListDetail({
                         startIcon={<ExitToApp />}
                         variant="outlined"
                         color="secondary"
-                        onClick={onExit}
+                        onClick={() => {
+                            if (unsavedChanges) {
+                                const confirmExit = window.confirm("⚠️ Please save your context as you leave the page. Do you still want to exit?");
+                                if (!confirmExit) return;
+                            }
+                            onExit();
+                        }}
+
                     >
                         Exit
                     </Button>
