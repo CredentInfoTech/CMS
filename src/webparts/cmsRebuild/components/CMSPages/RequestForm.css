@@ -100,3 +100,46 @@ textarea:disabled {
   color: #000 !important;
   opacity: 0.7;
 }
+.snackbar-container {
+  z-index: 2000 !important; /* Ensure it overrides default styles */
+}
+.custom-modal-width{
+/* ...existing code... */
+
+ /* Modal header: theme background, white title, red close icon */
+.modal-header,
+.modal-header.custom-modal-header {
+  background-color: var(--theme-color) !important; /* #035da2 */
+  color: #ffffff !important; /* ffffff */
+  border-bottom: none !important;
+}
+
+/* Ensure the title text is white */
+.modal-header .modal-title,
+.modal-header .modal-title * {
+  color: #ffffff !important;
+}
+
+/* Close icon variations (Bootstrap 4/5) — try to cover both implementations */
+.modal-header .close,
+.modal-header .close span,
+.modal-header .btn-close {
+  color: red !important;
+  opacity: 1 !important;
+  filter: none !important;
+  /* If using an SVG-based .btn-close (Bootstrap 5), fall back to visible red X */
+  background-image: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* If .btn-close gets removed, provide visible X fallback */
+.modal-header .btn-close::before {
+  content: "✕";
+  color: red;
+  font-size: 1.1rem;
+  display: inline-block;
+}
+
+/* ...existing code... */
+}

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { DataGrid, GridColDef, GridRenderCellParams, GridPaginationModel, GridToolbar } from "@mui/x-data-grid";
@@ -483,4 +484,4 @@ export default function ListDetail({
             </div>
         </div>
     );
-}
+

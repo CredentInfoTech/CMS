@@ -26,7 +26,7 @@ import {
 import { DatePicker } from "antd";
 import { Modal, Button } from "react-bootstrap";
 import Spinner from "react-bootstrap/Spinner";
-import * as moment from "moment";
+import moment from "moment";
 import { faClockRotateLeft } from "@fortawesome/free-solid-svg-icons";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
