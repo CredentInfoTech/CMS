@@ -1127,9 +1127,15 @@ export default function RequesterInvoiceSection({
                   <th className="fixed-th">Invoice Proceed Date</th>
                 )}
                 {invoiceRows.some(
-                  (row) => row.InvoiceStatus === "Generated"
+                  (row) =>
+                    row.InvoiceStatus === "Generated" ||
+                    row.InvoiceStatus === "Credit Note Uploaded" ||
+                    row.PrevInvoiceStatus === "Generated"
                 ) && <th className="">Invoice Attachment</th>}
-                <th className="">Invoice Status</th>
+                {/* <th className="">Invoice Status</th> */}
+                {props.rowEdit === "Yes" && (
+                  <th className="">Invoice Status</th>
+                )}
                 <th className="fixed-th">Action</th>
                 {/* Add a new column header "Edit Invoice" if the checkbox condition is met */}
                 {showEditInvoiceColumn && (
@@ -1267,11 +1273,7 @@ export default function RequesterInvoiceSection({
                                   "Approved" &&
                                 (row.InvoiceStatus === "" ||
                                   (row.InvoiceStatus === "Pending Approval" &&
-                                    row.PrevInvoiceStatus !== "Generated") ||
-                                  (props.selectedRow?.isCreditNoteUploaded ===
-                                    "Yes" &&
-                                    row.InvoiceStatus ===
-                                      "Credit Note Uploaded"))
+                                    row.PrevInvoiceStatus !== "Generated"))
                               )
                             : false
                         }
@@ -1484,10 +1486,15 @@ export default function RequesterInvoiceSection({
                       </td>
                     )}
                     {invoiceRows.some(
-                      (r) => r.InvoiceStatus === "Generated"
+                      (r) =>
+                        r.InvoiceStatus === "Generated" ||
+                        r.InvoiceStatus === "Credit Note Uploaded" ||
+                        r.PrevInvoiceStatus === "Generated"
                     ) && (
                       <td className="">
-                        {row.InvoiceStatus === "Generated" ? (
+                        {row.InvoiceStatus === "Generated" ||
+                        row.InvoiceStatus === "Credit Note Uploaded" ||
+                        row.PrevInvoiceStatus === "Generated" ? (
                           row.InvoiceFileID ? (
                             (() => {
                               const file = invoiceDocuments.find(
@@ -1517,7 +1524,32 @@ export default function RequesterInvoiceSection({
                         )}
                       </td>
                     )}
+                    {/* {props.rowEdit === "Yes" && (
                     <td> {row.InvoiceStatus || "-"}</td>
+                    )} */}
+                    {props.rowEdit === "Yes" && (
+  <td>
+    <span
+      className={`badge rounded-pill px-3 py-2 text-capitalize ${
+        row.InvoiceStatus === "Started"
+          ? "bg-primary-subtle text-primary-emphasis"
+          : row.InvoiceStatus === "Proceeded"
+          ? "bg-warning-subtle text-warning-emphasis"
+          : row.InvoiceStatus === "Generated"
+          ? "bg-info-subtle text-info-emphasis"
+          : row.InvoiceStatus === "Credit Note Uploaded"
+          ? "bg-success-subtle text-success-emphasis"
+          : row.InvoiceStatus === "Pending Approval"
+          ? "bg-orange-100 text-orange-700"
+          : "bg-secondary-subtle text-secondary-emphasis"
+      }`}
+      style={{  display: "inline-block", textAlign: "center" }}
+    >
+      {row.InvoiceStatus || "Unknown"}
+    </span>
+  </td>
+)}
+
 
                     <td className="fixedcolumn">
                       {isEditMode && row.showProceed && (
@@ -1588,7 +1620,7 @@ export default function RequesterInvoiceSection({
                     {showEditInvoiceColumn &&
                       row.InvoiceStatus !== "Credit Note Uploaded" &&
                       row.InvoiceStatus !== "Pending Approval" &&
-                      row.PrevInvoiceStatus !== "Generated" && (
+                      row.CreditNoteStatus !== "Pending" && (
                         <td className="fixedcolumn">
                           <input
                             type="checkbox"

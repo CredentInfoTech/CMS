@@ -695,7 +695,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
         ContractID: row.contractNo,
         RequestID: row.invoiceInvoiceRequestID,
         InvoiceID: row.invoiceInvoiceID,
-        Comments: row.description,
+        Comments: row.description.trim().replace(/\s+/g, " ")
       };
 
       const uploadedFileResult = await uploadFileWithMetadata(
@@ -724,7 +724,8 @@ const Dashboard = (props: ICmsRebuildProps) => {
       const updatedMainList = {
         ApproverStatus: "Approved",
         ApproverComment: row.description,
-        IsCreditNoteUploaded: "Yes",
+        IsCreditNoteUploaded: "No",
+        SelectedSections: "invoice",
         RunWF: "Yes",
       };
 
@@ -1644,7 +1645,8 @@ const Dashboard = (props: ICmsRebuildProps) => {
   financeFilter === "Credit Note Pending"
     ? statusFilter === "Pending"
       ? invoiceRowsForCreditNote.filter(
-          (row) => row.prevInvoiceStatus === "Generated"
+          (row) => row.prevInvoiceStatus === "Generated" && row.creditNoteStatus === "Pending"
+
         )
       : invoiceRowsForCreditNote.filter(
           (row) =>
