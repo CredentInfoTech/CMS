@@ -49,7 +49,7 @@ export default function ListDetail({
 
             // Fetch list fields
             const fieldsRes = await fetch(
-                `${siteUrl}/_api/web/lists/getbytitle('${listName}')/fields?$filter=Hidden eq false and ReadOnlyFigit eld eq false`,
+                `${siteUrl}/_api/web/lists/getbytitle('${listName}')/fields?$filter=Hidden eq false and ReadOnlyField eq false`,
                 { headers: { Accept: "application/json;odata=verbose" } }
             );
             const fieldsJson = await fieldsRes.json();
