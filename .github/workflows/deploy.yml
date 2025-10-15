@@ -9,38 +9,48 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      # 🧩 Step 1: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 🧩 Step 2: Setup Node.js (SPFx requires Node 18 or 20)
       - name: Use Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
           cache: 'npm'
 
+      # 🧩 Step 3: Install Gulp CLI globally
       - name: Install Gulp CLI
         run: npm install --global gulp-cli
 
-      - name: Run npm ci
+      # 🧩 Step 4: Install dependencies
+      - name: Install project dependencies
         run: npm ci
 
-      - name: Bundle & Package
+      # 🧩 Step 5: Bundle and package SPFx solution
+      - name: Bundle & Package solution
         run: |
           gulp bundle --ship
           gulp package-solution --ship
 
-      - name: Debug File Path
+      # 🧩 Step 6: Verify output file path (debug helper)
+      - name: Debug solution path
         run: ls -R sharepoint/solution
 
+      # 🧩 Step 7: Login to Microsoft 365 using certificate-based auth
       - name: CLI for Microsoft 365 Login
         uses: pnp/action-cli-login@v2
         with:
+          APP_ID: ${{ secrets.APP_ID }}
+          TENANT: ${{ secrets.TENANT_ID }}
           CERTIFICATE_ENCODED: ${{ secrets.CERTIFICATE_ENCODED }}
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-          TENANT: ${{ secrets.TENANT_ID }}
 
-      - name: Deploy App to DEV Site Collection App Catalog
+      # 🧩 Step 8: Deploy to Dev Site Collection App Catalog
+      - name: Deploy SPFx app to Dev site collection
         id: devDeploy
         uses: pnp/action-cli-deploy@v4
         with:
@@ -50,4 +60,6 @@ jobs:
           SCOPE: sitecollection
           SITE_COLLECTION_URL: https://credentinfotec.sharepoint.com/sites/IntranetPortal-Dev
 
-
+      # 🧩 Step 9: Confirm Deployment
+      - name: Deployment Status
+        run: echo "✅ SPFx App deployed successfully to DEV site!"
