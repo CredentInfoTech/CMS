@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-use-before-define */
-/* eslint-disable  @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-use-before-define*/
+/* eslint-disable  @typescript-eslint/no-floating-promises*/
 /* eslint-disable  @typescript-eslint/explicit-function-return-type */
+
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { DataGrid, GridColDef, GridRenderCellParams, GridPaginationModel, GridToolbar } from "@mui/x-data-grid";
