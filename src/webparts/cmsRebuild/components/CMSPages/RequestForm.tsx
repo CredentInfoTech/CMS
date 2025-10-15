@@ -439,6 +439,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       InvoiceFileID: "",
       invoiceApprovalChecked: false, // Initialize here
       PrevInvoiceStatus: "",
+      CreditNoteStatus: "",
     },
   ]);
 
@@ -639,6 +640,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
   //   }
   // }, [props.rowEdit, props.selectedRow]);
 
+  /*
   useEffect(() => {
     if (
       props.rowEdit === "Yes" &&
@@ -673,6 +675,62 @@ const RequestForm = (props: ICmsRebuildProps) => {
           itemID: invoice.Id,
           ClaimNo: invoice.ClaimNo || null,
           PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
+          RequestID: invoice.RequestID || "",
+          DocId: invoice.DocId || "",
+          PendingAmount: "",
+          InvoiceFileID: invoice.InvoiceFileID,
+        })
+      );
+
+      // Update `editInvoiceRows` only if the data has changed
+      setEditInvoiceRows((prevRows) => {
+        const isDataChanged =
+          JSON.stringify(prevRows) !== JSON.stringify(invoiceData);
+        if (isDataChanged) {
+          console.log("Updating editInvoiceRows with new data:", invoiceData);
+          return invoiceData;
+        }
+        return prevRows;
+      });
+    }
+  }, [props.rowEdit, props.selectedRow, props.selectedRow?.invoiceDetails]);
+*/
+
+  useEffect(() => {
+    if (
+      props.rowEdit === "Yes" &&
+      props.selectedRow &&
+      props.selectedRow.invoiceDetails
+    ) {
+      console.log(
+        props.selectedRow.isAzureRequestClosed,
+        "props.selectedRow.invoiceDetailsprops.selectedRow.invoiceDetails"
+      );
+      console.log(props.selectedRow, "props.isazuee");
+
+      const invoiceData = props.selectedRow.invoiceDetails.map(
+        (invoice: any, index: number) => ({
+          id: index + 1,
+          InvoiceDescription: invoice.Comments || "",
+          RemainingPoAmount: invoice.PoAmount || "",
+          InvoiceAmount: invoice.InvoiceAmount || "",
+          InvoiceDueDate: invoice.InvoiceDueDate
+            ? new Date(invoice.InvoiceDueDate).toLocaleDateString("en-GB")
+            : "",
+          InvoiceProceedDate: invoice.ProceedDate
+            ? new Date(invoice.ProceedDate).toLocaleDateString("en-GB")
+            : "",
+          showProceed: true,
+          InvoiceStatus: invoice.InvoiceStatus || "",
+          userInGroup: false,
+          employeeEmail: props.selectedRow.employeeEmail || "",
+          InvoiceNo: invoice.InvoicNo || "",
+          InvoiceDate: invoice.InvoiceDate || "",
+          InvoiceTaxAmount: invoice.InvoiceTaxAmount,
+          itemID: invoice.Id,
+          ClaimNo: invoice.ClaimNo || null,
+          PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
+          CreditNoteStatus: invoice.CreditNoteStatus || "",
           RequestID: invoice.RequestID || "",
           DocId: invoice.DocId || "",
           PendingAmount: "",
@@ -764,6 +822,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceTaxAmount: "",
           ClaimNo: null as number | null,
           PrevInvoiceStatus: "",
+          CreditNoteStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
@@ -930,6 +989,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
         }
         if (invoiceRows.length < minRows) {
           alert(`Minimum ${minRows} invoice rows required.`);
+          return false;
         }
       }
       invoiceRows.forEach((row, index) => {
@@ -1024,6 +1084,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceTaxAmount: "",
           ClaimNo: null,
           PrevInvoiceStatus: "",
+          CreditNoteStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
@@ -1074,6 +1135,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceTaxAmount: "",
           ClaimNo: null,
           PrevInvoiceStatus: "",
+          CreditNoteStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
@@ -1229,7 +1291,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
     }
   };
 
-  const handleInvoiceChange = (
+  /* const handleInvoiceChange = (
     index: number,
     field: string,
     value: string | number
@@ -1350,7 +1412,152 @@ const RequestForm = (props: ICmsRebuildProps) => {
 
       return updatedRows;
     });
+  };*/
+
+  const handleInvoiceChange = (
+    index: number,
+    field: string,
+    value: string | number
+  ) => {
+    setInvoiceRows((prevRows) => {
+      let updatedRows = [...prevRows];
+      updatedRows[index] = { ...updatedRows[index], [field]: value };
+
+      // Update RemainingPoAmount dynamically
+      if (field === "InvoiceAmount") {
+        const poAmt = parseFloat(formData.poAmount) || 0;
+
+        // Filter only valid rows (exclude "Credit Note Uploaded")
+        const validRows = updatedRows.filter(
+          (row) => row.InvoiceStatus !== "Credit Note Uploaded"
+        );
+
+        // Start remaining amount from total PO
+        let runningRemaining = poAmt;
+
+        // Update only non–Credit Note Uploaded rows
+        updatedRows = updatedRows.map((row) => {
+          if (row.InvoiceStatus === "Credit Note Uploaded") {
+            // Keep Credit Note Uploaded rows unchanged
+            return { ...row };
+          }
+
+          const invoiceAmount = parseFloat(row.InvoiceAmount) || 0;
+          const updatedRow = {
+            ...row,
+            RemainingPoAmount: runningRemaining.toFixed(2),
+          };
+
+          runningRemaining -= invoiceAmount;
+          return updatedRow;
+        });
+
+        // Calculate totals excluding Credit Note Uploaded rows
+        const totalInvoiceAmount = validRows.reduce(
+          (sum, r) => sum + (Number(r.InvoiceAmount) || 0),
+          0
+        );
+        const remainingAfter = +(poAmt - totalInvoiceAmount).toFixed(2);
+
+        // Find last valid (non–Credit Note Uploaded) row
+        const lastValidRow = [...updatedRows]
+          .reverse()
+          .find((row) => row.InvoiceStatus !== "Credit Note Uploaded");
+
+        const lastRowHasValue =
+          lastValidRow &&
+          String(lastValidRow.InvoiceAmount).trim() !== "" &&
+          Number(lastValidRow.InvoiceAmount) !== 0;
+
+        // Add new blank row if PO not fully used and last valid row has value
+        if (poAmt > 0 && remainingAfter > 0 && lastRowHasValue) {
+          const maxId =
+            updatedRows.length > 0
+              ? Math.max(...updatedRows.map((r) => r.id))
+              : 0;
+
+          updatedRows.push({
+            id: maxId + 1,
+            InvoiceDescription: "",
+            RemainingPoAmount: remainingAfter.toFixed(2),
+            InvoiceAmount: "",
+            InvoiceDueDate: "",
+            InvoiceProceedDate: "",
+            InvoiceComment: "",
+            showProceed: false,
+            InvoiceStatus: "",
+            userInGroup: false,
+            employeeEmail: "",
+            itemID: null as number | null,
+            InvoiceNo: "",
+            InvoiceDate: "",
+            InvoiceTaxAmount: "",
+            ClaimNo: null,
+            PrevInvoiceStatus: "",
+            CreditNoteStatus: "",
+            RequestID: "",
+            DocId: "",
+            PendingAmount: "",
+            InvoiceFileID: "",
+            invoiceApprovalChecked: false,
+          });
+        }
+
+        // Remove extra trailing rows when PO amount is exactly used up
+        if (poAmt > 0 && remainingAfter === 0) {
+          let lastFilledIndex = -1;
+          for (let i = updatedRows.length - 1; i >= 0; i--) {
+            const amt = String(updatedRows[i].InvoiceAmount).trim();
+            if (
+              amt !== "" &&
+              Number(updatedRows[i].InvoiceAmount) !== 0 &&
+              updatedRows[i].InvoiceStatus !== "Credit Note Uploaded"
+            ) {
+              lastFilledIndex = i;
+              break;
+            }
+          }
+
+          if (lastFilledIndex === -1) {
+            // Nothing filled → keep one empty row with full PO amount
+            updatedRows = [
+              {
+                id: updatedRows[0]?.id || 1,
+                InvoiceDescription: "",
+                RemainingPoAmount: poAmt.toFixed(2),
+                InvoiceAmount: "",
+                InvoiceDueDate: "",
+                InvoiceProceedDate: "",
+                InvoiceComment: "",
+                showProceed: false,
+                InvoiceStatus: "",
+                userInGroup: false,
+                employeeEmail: "",
+                itemID: null as number | null,
+                InvoiceNo: "",
+                InvoiceDate: "",
+                InvoiceTaxAmount: "",
+                ClaimNo: null,
+                PrevInvoiceStatus: "",
+                CreditNoteStatus: "",
+                RequestID: "",
+                DocId: "",
+                PendingAmount: "",
+                InvoiceFileID: "",
+                invoiceApprovalChecked: false,
+              },
+            ];
+          } else {
+            // Keep only up to last valid (non-credit-note) filled row
+            updatedRows = updatedRows.slice(0, lastFilledIndex + 1);
+          }
+        }
+      }
+
+      return updatedRows;
+    });
   };
+
   const addInvoiceRow = () => {
     setInvoiceRows((prevRows) => {
       const totalInvoiceAmount = prevRows.reduce(
@@ -1383,6 +1590,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
           InvoiceTaxAmount: "",
           ClaimNo: null as number | null,
           PrevInvoiceStatus: "",
+          CreditNoteStatus: "",
           RequestID: "",
           DocId: "",
           PendingAmount: "",
@@ -1456,6 +1664,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
         InvoiceTaxAmount: "",
         ClaimNo: null,
         PrevInvoiceStatus: "",
+        CreditNoteStatus: "",
         RequestID: "",
         DocId: "",
         PendingAmount: "",
@@ -1474,6 +1683,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       const invoiceData = {
         ClaimNo: index + 1,
         PrevInvoiceStatus: row.PrevInvoiceStatus || "",
+        CreditNoteStatus: row.CreditNoteStatus || "",
         DocId: uid,
         Comments: row.InvoiceDescription,
         PoAmount: Number(row.RemainingPoAmount),
@@ -1530,6 +1740,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
           RequestID: requestId,
           ClaimNo: claimNo,
           PrevInvoiceStatus: row.PrevInvoiceStatus || "",
+          CreditNoteStatus: row.CreditNoteStatus || "",
           InvoiceAmount: Number(totalInvoiceAmount) || 0,
           InvoiceDueDate: row.dueDate
             ? moment(row.dueDate, [
@@ -2577,6 +2788,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
               itemID: invoice.Id,
               ClaimNo: invoice.ClaimNo || "",
               PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
+              CreditNoteStatus: invoice.CreditNoteStatus || "",
               RequestID: invoice.RequestID || "",
               DocId: invoice.DocId || "",
               PendingAmount: "",
@@ -2623,6 +2835,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
               itemID: invoice.Id,
               ClaimNo: invoice.ClaimNo || null,
               PrevInvoiceStatus: invoice.PrevInvoiceStatus || "",
+              CreditNoteStatus: invoice.CreditNoteStatus || "",
               RequestID: invoice.RequestID || "",
               DocId: invoice.DocId || "",
               PendingAmount: "",
@@ -3140,6 +3353,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
               InvoiceTaxAmount: "",
               ClaimNo: null,
               PrevInvoiceStatus: "",
+              CreditNoteStatus: "",
               RequestID: "",
               DocId: "",
               PendingAmount: "",
@@ -3477,151 +3691,12 @@ const RequestForm = (props: ICmsRebuildProps) => {
     setReason(""); // Reset the reason field
   };
 
-  // const handleSubmitEditRequestApproval = async (id: number) => {
-  //  const handleSubmitEditRequestApproval = async (
-  //  event?: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-  //   id?: number
-  // ) => {
-  //   try {
-  //     if (!reason || reason.trim() === "") {
-  //       showSnackbar("Please provide a reason for the edit request.", "error");
-  //       return;
-  //     }
-
-  //     if (!approvalChecks || !invoiceRows) {
-  //       console.error("approvalChecks or invoiceRows is undefined.");
-  //       return;
-  //     }
-
-  //     const selectedSections = Object.entries(approvalChecks)
-  //       .filter(([_, checked]) => checked)
-  //       .map(([section, _]) => section)
-  //       .join(", ")
-  //       .trim();
-
-  //     let selectedInvoiceIDs: any[] = [];
-  //     if (approvalChecks.invoice) {
-  //       selectedInvoiceIDs = invoiceRows
-  //         .filter((row) => row.invoiceApprovalChecked)
-  //         .map((row) => row.itemID)
-  //         .filter((id) => id !== null); // Ensure no null values
-  //     }
-
-  //     console.log("Selected Sections:", selectedSections);
-  //     console.log("Selected Invoice IDs:", selectedInvoiceIDs);
-
-  //     // Step 1: Save data in OperationalCMSEditRequest
-  //     const editRequestData = {
-  //       RequestID: id,
-  //       Reason: reason.trim(),
-  //       UserName: currentUser,
-  //       UserEmail: currentUserEmail,
-  //       SelectedSections: selectedSections,
-  //       Status: "Pending Approval",
-  //       InvoiceID: selectedInvoiceIDs.join(", "),
-  //     };
-
-  //     console.log("Edit Request Data:", editRequestData);
-
-  //     const savedEditRequest = await saveDataToSharePoint(
-  //       OperationalEditRequest,
-  //       editRequestData,
-  //       siteUrl
-  //     );
-  //     console.log("Saved Edit Request:", savedEditRequest);
-
-  //     // Step 2: Update RunWF in MainList
-  //     const mainListUpdateData = {
-  //       ApproverStatus: "Pending From Approver",
-  //       ApproverComment: reason.trim(),
-  //       SelectedSections: selectedSections,
-  //       RunWF: "Yes",
-  //     };
-
-  //     console.log("Main List Update Data:", mainListUpdateData);
-
-  //     const updatedMainList = await updateDataToSharePoint(
-  //       MainList,
-  //       mainListUpdateData,
-  //       siteUrl,
-  //       id
-  //     );
-  //     console.log("Updated MainList:", updatedMainList);
-
-  //     // Step 3: Update status in InvoicelistName for selected invoices
-  //     if (approvalChecks.invoice) {
-  //       const selectedInvoices = invoiceRows.filter(
-  //         (row) => row.invoiceApprovalChecked
-  //       );
-
-  //       for (const invoice of selectedInvoices) {
-  //         const invoiceUpdateData = {
-  //           PrevInvoiceStatus: invoice.InvoiceStatus || "",
-  //           InvoiceStatus: "Pending Approval",
-  //           RunWF: "Yes",
-  //         };
-
-  //         console.log("Invoice Update Data:", invoiceUpdateData);
-
-  //         await updateDataToSharePoint(
-  //           InvoicelistName,
-  //           invoiceUpdateData,
-  //           siteUrl,
-  //           Number(invoice.itemID || null)
-  //         );
-  //       }
-  //       console.log("Updated Invoice Status for Selected Invoices");
-  //     }
-
-  //     // Show success message
-  //     showSnackbar(
-  //       "Your request to edit has been sent to the Account/Project Manager. Please be patient until it is approved.",
-  //       "success"
-  //     );
-
-  //     // Refresh CMS details and navigate to the dashboard
-  //      try {
-  //         if (event && typeof event.preventDefault === "function") {
-  //           event.preventDefault();
-  //         }
-
-  //         // Ensure props.refreshCmsDetails is a function before calling it
-  //         if (typeof props.refreshCmsDetails === "function") {
-  //           await props.refreshCmsDetails();
-  //         }
-
-  //         // Ensure props.onExit is a function before calling it
-  //         if (typeof props.onExit === "function") {
-  //           props.onExit();
-  //           // Exit early if onExit is provided
-  //           return;
-  //         }
-
-  //         // Set navigation state only once
-  //         // setNavigateToDashboard(true);
-
-  //         // Use a single state update for dashboard navigation
-  //         // setTimeout(() => {
-  //         //   setDashboardKey((prev) => prev + 1);
-  //         // }, 100);
-  //       } catch (error) {
-  //         console.error("Error in handleExit:", error);
-  //       }
-
-  //   } catch (error) {
-  //     console.error("Failed to process edit request:", error);
-  //     console.log(
-  //       "Something went wrong while sending your edit request. Please try again."
-  //     );
-  //   }
-  // };
-
-  // ...existing code...
   const handleSubmitEditRequestApproval = async (
     event?: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     id?: number
   ) => {
     try {
+      event?.preventDefault();
       // Ensure id is provided and is a number (narrow type for TS)
       if (typeof id !== "number") {
         console.error("No request id provided to submit edit approval.");
@@ -3667,7 +3742,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
         SelectedSections: selectedSections,
         Status: "Pending Approval",
         InvoiceID: selectedInvoiceIDs.join(", "),
-        ContractID : formData.requestId || "", 
+        ContractID: formData.requestId || "",
       };
 
       console.log("Edit Request Data:", editRequestData);
@@ -3724,33 +3799,28 @@ const RequestForm = (props: ICmsRebuildProps) => {
 
       // Show success message
       showSnackbar(
-        "Your request to edit has been sent to the Account/Project Manager. Please be patient until it is approved.",
+        "Your request to edit has been sent to the Project Manager. Please be patient until it is approved.",
         "success"
       );
 
-      setIsPopupOpen(false);
+      // Clear form and navigate to dashboard
       setReason("");
+      setApprovalChecks({ client: false, po: false, invoice: false });
+      setIsPopupOpen(false);
 
-      // Refresh CMS details and navigate to the dashboard
-      try {
-        if (event && typeof event.preventDefault === "function") {
-          event.preventDefault();
-        }
-
-        // Ensure props.refreshCmsDetails is a function before calling it
-        if (typeof props.refreshCmsDetails === "function") {
-          await props.refreshCmsDetails();
-        }
-
-        // Ensure props.onExit is a function before calling it
-        if (typeof props.onExit === "function") {
-          props.onExit();
-          // Exit early if onExit is provided
-          return;
-        }
-      } catch (error) {
-        console.error("Error in handleExit:", error);
+      resetForm();
+      await props.refreshCmsDetails();
+      setIsLoading(false);
+      // alert("Form and data submitted successfully!");
+      if (props.onExit) {
+        props.onExit();
+        return;
       }
+      setNavigateToDashboard(true);
+      setTimeout(() => {
+        setDashboardKey((prev) => prev + 1);
+        setNavigateToDashboard(true);
+      }, 100);
     } catch (error) {
       console.error("Failed to process edit request:", error);
       console.log(
@@ -3765,6 +3835,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
   const handleUpdateEditRequest = async (
     event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
   ) => {
+    event?.preventDefault();
     console.log("Update Edit Request clicked");
     console.log(
       "Deleted invoice item IDs (during edit):",
@@ -3833,9 +3904,14 @@ const RequestForm = (props: ICmsRebuildProps) => {
           return;
         }
 
+        // const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
+        //   formData.customerName
+        // )}' and PoNo eq '${encodeURIComponent(formData.poNo)}'`;
         const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
           formData.customerName
-        )}' and PoNo eq '${encodeURIComponent(formData.poNo)}'`;
+        )}' and PoNo eq '${encodeURIComponent(formData.poNo)}' and ID ne ${
+          props.selectedRow.id
+        }`;
         const poNoData = await getSharePointData(
           { context },
           MainList,
@@ -3890,8 +3966,12 @@ const RequestForm = (props: ICmsRebuildProps) => {
 
       if (selectedSections.includes("invoice")) {
         // Verify total of invoice rows equals PO Amount
+
         const poAmt = Number(formData.poAmount) || 0;
+
+        // Only include rows that are NOT "Credit Note Uploaded"
         const totalInvoiceAmount = invoiceRows.reduce((sum, r) => {
+          if (r.InvoiceStatus === "Credit Note Uploaded") return sum; // skip
           const v = Number(r.InvoiceAmount) || 0;
           return sum + v;
         }, 0);
@@ -3939,8 +4019,32 @@ const RequestForm = (props: ICmsRebuildProps) => {
             PrevInvoiceStatus: "",
           };
 
-          if (row.InvoiceStatus === "Pending Approval" && row.PrevInvoiceStatus!== "Generated") {
+          // Only set InvoiceStatus if applicable
+          if (
+            row.InvoiceStatus === "Pending Approval" &&
+            row.PrevInvoiceStatus !== "Generated"
+          ) {
             invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
+          }
+          if (
+            row.InvoiceStatus === "Pending Approval" &&
+            row.PrevInvoiceStatus === "Generated"
+          ) {
+            invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
+            invoiceData.PrevInvoiceStatus = row.PrevInvoiceStatus;
+          }
+          if (
+            row.InvoiceStatus === "Credit Note Uploaded" &&
+            row.CreditNoteStatus === "Uploaded"
+          ) {
+            invoiceData.CreditNoteStatus = "Completed"; // update status
+            invoiceData.PrevInvoiceStatus = ""; // reset previous status
+          }
+          // ✅ Don’t change PrevInvoiceStatus for “Credit Note Uploaded”
+          else if (row.InvoiceStatus === "Credit Note Uploaded") {
+            invoiceData.PrevInvoiceStatus = row.PrevInvoiceStatus; // keep existing one
+          } else {
+            invoiceData.PrevInvoiceStatus = row.InvoiceStatus || "";
           }
 
           try {
@@ -4023,25 +4127,39 @@ const RequestForm = (props: ICmsRebuildProps) => {
         // Single success message after all updates
         showSnackbar("Edit request updated successfully.", "success");
 
-        try {
-          if (event && typeof event.preventDefault === "function") {
-            event.preventDefault();
-          }
+         resetForm();
+      await props.refreshCmsDetails();
+      setIsLoading(false);
+      // alert("Form and data submitted successfully!");
+      if (props.onExit) {
+        props.onExit();
+        return;
+      }
+      setNavigateToDashboard(true);
+      setTimeout(() => {
+        setDashboardKey((prev) => prev + 1);
+        setNavigateToDashboard(true);
+      }, 100);
 
-          // Ensure props.refreshCmsDetails is a function before calling it
-          if (typeof props.refreshCmsDetails === "function") {
-            await props.refreshCmsDetails();
-          }
+        // try {
+        //   if (event && typeof event.preventDefault === "function") {
+        //     event.preventDefault();
+        //   }
 
-          // Ensure props.onExit is a function before calling it
-          if (typeof props.onExit === "function") {
-            props.onExit();
-            // Exit early if onExit is provided
-            return;
-          }
-        } catch (error) {
-          console.error("Error in handleExit:", error);
-        }
+        //   // Ensure props.refreshCmsDetails is a function before calling it
+        //   if (typeof props.refreshCmsDetails === "function") {
+        //     await props.refreshCmsDetails();
+        //   }
+
+        //   // Ensure props.onExit is a function before calling it
+        //   if (typeof props.onExit === "function") {
+        //     props.onExit();
+        //     // Exit early if onExit is provided
+        //     return;
+        //   }
+        // } catch (error) {
+        //   console.error("Error in handleExit:", error);
+        // }
       }
     } catch (error) {
       console.error("Error updating edit request:", error);
@@ -4148,6 +4266,9 @@ const RequestForm = (props: ICmsRebuildProps) => {
             autoHideDuration={6000}
             onClose={handleCloseSnackbar}
             anchorOrigin={{ vertical: "top", horizontal: "center" }}
+            sx={{
+              zIndex: 1400, // Ensure it's above all other elements
+            }}
             // style={{
             //   display: "flex !important",
             //   justifyContent: "center !important",
@@ -4326,9 +4447,10 @@ const RequestForm = (props: ICmsRebuildProps) => {
                 {props.rowEdit === "Yes" &&
                   requestClosed !== "Yes" &&
                   props.selectedRow?.employeeEmail === currentUserEmail &&
-                  !["Approved", "Hold", "Pending From Approver"].includes(
-                    props.selectedRow.approverStatus
-                  ) && (
+                  !["Approved", "Hold", "Pending From Approver","Reminder"].includes(
+                    props.selectedRow?.approverStatus) 
+                    && props.selectedRow?.isCreditNoteUploaded !== "No"
+                  && (
                     <span
                       className="form-check"
                       onClick={(e) => e.stopPropagation()}
@@ -4780,9 +4902,9 @@ const RequestForm = (props: ICmsRebuildProps) => {
                 {props.rowEdit === "Yes" &&
                   requestClosed !== "Yes" &&
                   props.selectedRow?.employeeEmail === currentUserEmail &&
-                  !["Approved", "Hold", "Pending From Approver"].includes(
-                    props.selectedRow.approverStatus
-                  ) && (
+                  !["Approved", "Hold", "Pending From Approver", "Reminder"].includes(
+                    props.selectedRow.approverStatus) && props.selectedRow?.isCreditNoteUploaded !== "No"
+                     && (
                     <span
                       className="form-check "
                       onClick={(e) => e.stopPropagation()}
@@ -5018,6 +5140,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                           InvoiceTaxAmount: "",
                           ClaimNo: null,
                           PrevInvoiceStatus: "",
+                          CreditNoteStatus: "",
                           RequestID: "",
                           DocId: "",
                           PendingAmount: "",
@@ -5119,6 +5242,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                               InvoiceTaxAmount: "",
                               ClaimNo: null,
                               PrevInvoiceStatus: "",
+                              CreditNoteStatus: "",
                               RequestID: "",
                               DocId: "",
                               PendingAmount: "",
@@ -5182,6 +5306,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                               InvoiceTaxAmount: "",
                               ClaimNo: null,
                               PrevInvoiceStatus: "",
+                              CreditNoteStatus: "",
                               RequestID: "",
                               DocId: "",
                               PendingAmount: "",
@@ -5273,6 +5398,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                               InvoiceTaxAmount: "",
                               ClaimNo: null,
                               PrevInvoiceStatus: "",
+                              CreditNoteStatus: "",
                               RequestID: "",
                               DocId: "",
                               PendingAmount: "",
@@ -6268,7 +6394,8 @@ const RequestForm = (props: ICmsRebuildProps) => {
           )}
 
           {/* -------------------- Operational Edit Requests Section Start-------------------- */}
-          {props.rowEdit === "Yes" && props.selectedRow?.approverStatus ? (
+          {/* {props.rowEdit === "Yes" && props.selectedRow?.approverStatus ? ( */}
+          {props.rowEdit === "Yes" ? (
             <div className="mt-4">
               <div
                 className="d-flex align-items-center justify-content-between sectionheader"
@@ -6282,7 +6409,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                 aria-controls="operationalEditsCollapse"
               >
                 <h5 className="fw-bold headingColor">
-                  Operational Edit Requests
+                  Edit Requests History
                 </h5>
                 <button
                   type="button"
@@ -6351,13 +6478,17 @@ const RequestForm = (props: ICmsRebuildProps) => {
                       const currentRequests = operationalEdits.filter(
                         (r: any) => {
                           const st = (r.Status || "").trim();
-                          return st === "Pending Approval" || st === "Hold";
+                          return st === "Pending Approval" || st === "Hold" || st === "Reminder";
                         }
                       );
                       const oldRequests = operationalEdits.filter(
-                        (r: any) =>
-                          (r.Status || "").trim() !== "Pending Approval"
+                        (r: any) => {
+                          const os = (r.Status || "").trim();
+                          return os !== "Pending Approval" || os !== "Hold" || os !== "Reminder";
+                        }
                       );
+
+                      
 
                       const isProjectManager =
                         (currentUserEmail || "").toLowerCase() ===
@@ -6468,7 +6599,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                                             isProjectManager &&
                                             (row.Status ===
                                               "Pending Approval" ||
-                                              row.Status === "Hold") && (
+                                              row.Status === "Hold" || row.Status === "Reminder") && (
                                               <>
                                                 <button
                                                   className="btn btn-success"
@@ -6613,8 +6744,11 @@ const RequestForm = (props: ICmsRebuildProps) => {
                                                                   Number(
                                                                     invoiceRow?.RemainingPoAmount
                                                                   ) || 0,
-                                                                  ContractID : formData.requestId || "",
-                                                                  EditRequestItemID : row.Id || "",
+                                                                ContractID:
+                                                                  formData.requestId ||
+                                                                  "",
+                                                                EditRequestItemID:
+                                                                  row.Id || "",
                                                               };
 
                                                             // Save invoice details to SharePoint
@@ -6733,7 +6867,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                                                   Hold
                                                 </button>
 
-                                                <button
+                                                {/* <button
                                                   className="btn btn-danger"
                                                   onClick={async () => {
                                                     if (!row.Id) return;
@@ -6790,6 +6924,94 @@ const RequestForm = (props: ICmsRebuildProps) => {
                                                   }}
                                                 >
                                                   Reject
+                                                </button> */}
+
+                                                <button
+                                                  className="btn btn-danger"
+                                                  onClick={async () => {
+                                                    if (!row.Id) return;
+                                                    if (
+                                                      !window.confirm(
+                                                        "Reject this edit request?"
+                                                      )
+                                                    )
+                                                      return;
+                                                    try {
+                                                      setIsLoading(true);
+
+                                                      // Mark OperationalEditRequest as rejected
+                                                      await updateDataToSharePoint(
+                                                        OperationalEditRequest,
+                                                        { Status: "Rejected" },
+                                                        siteUrl,
+                                                        row.Id
+                                                      );
+
+                                                      // Update InvoiceStatus and PrevInvoiceStatus for "Pending Approval" invoices
+                                                      for (const invoiceRow of invoiceRows) {
+                                                        if (
+                                                          invoiceRow?.InvoiceStatus ===
+                                                          "Pending Approval"
+                                                        ) {
+                                                          const invoiceUpdateData =
+                                                            {
+                                                              InvoiceStatus:
+                                                                invoiceRow.PrevInvoiceStatus ||
+                                                                "",
+                                                              PrevInvoiceStatus:
+                                                                "",
+                                                            };
+
+                                                          await updateDataToSharePoint(
+                                                            InvoicelistName,
+                                                            invoiceUpdateData,
+                                                            siteUrl,
+                                                            Number(
+                                                              invoiceRow.itemID
+                                                            )
+                                                          );
+                                                        }
+                                                      }
+
+                                                      // Mirror rejection to the main list
+                                                      if (
+                                                        props.selectedRow?.id
+                                                      ) {
+                                                        await updateDataToSharePoint(
+                                                          MainList,
+                                                          {
+                                                            ApproverStatus:
+                                                              "Reject",
+                                                            RunWF: "No",
+                                                          },
+                                                          siteUrl,
+                                                          props.selectedRow.id
+                                                        );
+                                                      }
+
+                                                      showSnackbar(
+                                                        "Request rejected.",
+                                                        "success"
+                                                      );
+                                                      await fetchOperationalEdits(
+                                                        props.selectedRow?.id
+                                                      );
+                                                      await props.refreshCmsDetails?.();
+                                                      await finalizeAction(
+                                                        false
+                                                      );
+                                                    } catch (err) {
+                                                      console.error(err);
+                                                      showSnackbar(
+                                                        "Failed to reject request.",
+                                                        "error"
+                                                      );
+                                                    } finally {
+                                                      setIsLoading(false);
+                                                    }
+                                                  }}
+                                                >
+                                                  Reject
                                                 </button>
                                               </>
                                             )}
@@ -6798,10 +7020,10 @@ const RequestForm = (props: ICmsRebuildProps) => {
                                           {requestClosed !== "Yes" &&
                                             isEmployee &&
                                             !isProjectManager &&
-                                            row.Status ===
-                                              "Pending Approval" && (
+                                            (row.Status ===
+                                              "Pending Approval" || row.Status === "Hold" || row.Status === "Reminder") && (
                                               <button
-                                                className="btn btn-secondary"
+                                                className="btn btn-warning"
                                                 onClick={(e) => {
                                                   if (!props.selectedRow?.id)
                                                     return;
@@ -6920,9 +7142,9 @@ const RequestForm = (props: ICmsRebuildProps) => {
                   {props.rowEdit === "Yes" &&
                     props.selectedRow?.employeeEmail === currentUserEmail &&
                     requestClosed !== "Yes" &&
-                    !["Approved", "Hold", "Pending From Approver"].includes(
+                    !["Approved", "Hold", "Pending From Approver","Reminder"].includes(
                       props.selectedRow.approverStatus
-                    ) && (
+                    ) && props.selectedRow?.isCreditNoteUploaded !== "No" && (
                       <button
                         type="button"
                         className="btn btn-primary w-40 mt-3"
@@ -6944,8 +7166,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                         }}
                         style={{ marginLeft: "10px", marginRight: "10px" }}
                       >
-                        <FontAwesomeIcon icon={faEdit} /> Edit Request
-                        Approval--
+                        <FontAwesomeIcon icon={faEdit} /> Edit Request Approval
                       </button>
                     )}
 
@@ -7028,7 +7249,9 @@ const RequestForm = (props: ICmsRebuildProps) => {
                         {/* Reason Input */}
                         <div>
                           <label htmlFor="reason">
-                            <strong>Reason:</strong>
+                            <strong>
+                              Reason:<span style={{ color: "red" }}>*</span>
+                            </strong>
                           </label>
                           <textarea
                             id="reason"

@@ -7,6 +7,7 @@
 /* eslint-disable prefer-const */
 /* eslint-disable no-empty */
 /* eslint-disable eqeqeq */
+/* eslint-disable @typescript-eslint/no-floating-promises */
 
 import * as React from "react";
 import { useState, useEffect } from "react";
@@ -85,6 +86,8 @@ interface RowData {
   isPaymentReceived: string;
   invoiceDetails: any[];
   invoiceStatus?: string;
+  prevInvoiceStatus?: string;
+  creditNoteStatus?: string;
   paymentStatus?: string;
   invoiceInvoicNo?: string;
   invoiceAmount?: string;
@@ -123,6 +126,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
   const MainList = "CMSRequest";
   // console.log(CMSInvoiceDocuments);
   const PaymentHistoryListName = "CMSPaymentHistory";
+  const CreditNote = "CMSCreditNote"; // SharePoint Document Library for Credit Notes
   // console.log(PaymentHistoryListName);
   // const ContractDocumentLibaray = "ContractDocument";
   // console.log(ContractDocumentLibaray);
@@ -209,6 +213,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
       )
     );
   }
+
   // const [activePage, setActivePage] = useState<"finance" | "admin">("finance");
   // ...existing code...
   // const [activePage, setActivePage] = useState<"finance" | "admin" | "requester">("finance");
@@ -672,6 +677,94 @@ const Dashboard = (props: ICmsRebuildProps) => {
     }
   };
 
+  const handleUploadCreditNote = async (row: any) => {
+    if (!rowFiles[row.id]) {
+      alert("Please select a file before uploading.");
+      return;
+    }
+
+    if (!row.description || row.description.trim() === "") {
+      alert("Please provide a description before uploading.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const metadata = {
+        ContractID: row.contractNo,
+        RequestID: row.invoiceInvoiceRequestID,
+        InvoiceID: row.invoiceInvoiceID,
+        Comments: row.description,
+      };
+
+      const uploadedFileResult = await uploadFileWithMetadata(
+        rowFiles[row.id],
+        metadata,
+        CreditNote // Replace with your SharePoint library name
+      );
+
+      console.log("Credit Note uploaded successfully:", uploadedFileResult);
+
+      // Update the row status in SharePoint or local state
+      const updatedRow = {
+        InvoiceStatus: "Credit Note Uploaded",
+        PrevInvoiceStatus: "Generated",
+        CreditNoteStatus: "Uploaded",
+        RunWF: "Yes",
+      };
+
+      await updateDataToSharePoint(
+        InvoicelistName,
+        updatedRow,
+        siteUrl,
+        row.invoiceInvoiceID
+      );
+
+      const updatedMainList = {
+        ApproverStatus: "Approved",
+        ApproverComment: row.description,
+        IsCreditNoteUploaded: "Yes",
+        RunWF: "Yes",
+      };
+
+      await updateDataToSharePoint(
+        MainList,
+        updatedMainList,
+        siteUrl,
+        row.invoiceInvoiceRequestID
+      );
+
+      alert("Credit Note uploaded successfully.");
+      if (props.refreshCmsDetails) {
+        await props.refreshCmsDetails();
+      }
+    } catch (error) {
+      console.error("Error uploading credit note:", error);
+      alert("Failed to upload the credit note. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCreditNoteDetails = async (invoiceID: string) => {
+    const filterQuery = `$filter=InvoiceID eq '${invoiceID}'&$select=FileLeafRef,FileRef,EncodedAbsUrl,Comments`;
+    try {
+      const response = await getSharePointData(props, CreditNote, filterQuery);
+      if (response && response.length > 0) {
+        return {
+          fileName: response[0].FileLeafRef,
+          fileUrl: response[0].EncodedAbsUrl,
+          description: response[0].Comments || "",
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching Credit Note details:", error);
+      return null;
+    }
+  };
+
   const pendingPaymentColumns: GridColDef[] = [
     {
       field: "customerName",
@@ -695,44 +788,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
       flex: 1,
       editable: false,
     },
-    // Editable fields
 
-    // {
-    //   field: "paymentDate",
-    //   headerName: "Payment Recieved Date",
-    //   minWidth: 200,
-    //   flex: 1,
-    //   renderCell: (params) => {
-    //     let inputValue = "";
-    //     if (params.row.paymentDate) {
-    //       const dateObj = new Date(params.row.paymentDate);
-    //       if (!isNaN(dateObj.getTime())) {
-
-    //         inputValue = dateObj.toISOString().split("T")[0];
-    //       }
-    //     }
-
-    //     return (
-    //       <div>
-    //         <TextField
-    //           size="small"
-    //           fullWidth
-    //           type="date"
-    //           sx={{ mt: 0.625 }} // 5px margin top
-    //           value={inputValue}
-    //           disabled={statusFilter !== "Pending"}
-    //           onChange={(e) => {
-    //             params.api.updateRows([
-    //               { ...params.row, paymentDate: e.target.value }
-    //             ]);
-    //           }}
-    //           InputLabelProps={{ shrink: true }}
-    //         />
-
-    //       </div>
-    //     );
-    //   },
-    // },
     {
       field: "paymentDate",
       headerName: "Payment Recieved Date",
@@ -1026,63 +1082,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
       flex: 1,
       editable: false,
     },
-    // {
-    //   field: "invoiceTotalPendingAmount",
-    //   headerName: "Invoice Pending Amount",
-    //   type: "number",
-    //   minWidth: 130,
-    //   flex: 1,
-    //   editable: false,
-    // },
-    // {
-    //   field: "invoiceInvoiceDate",
-    //   headerName: "Invoice Date",
-    //   minWidth: 130,
-    //   flex: 1,
-    //   editable: false,
-    // },
-
-    // Editable fields
-    // {
-    //   field: "paymentDate",
-    //   headerName: "Payment Date",
-    //   type: "date",
-    //   minWidth: 130,
-    //   flex: 1,
-    //   editable: false,
-    // },
-    // {
-    //   field: "paymentValue",
-    //   headerName: "Payment Value",
-    //   type: "number",
-    //   minWidth: 130,
-    //   flex: 1,
-    //   editable: false,
-    // },
-    // // {
-    // //   field: "pendingPayment",
-    // //   headerName: "Pending Payment",
-    // //   type: "number",
-    // //   minWidth: 130,
-    // //   flex: 1,
-    // //   editable: false,
-    // // },
-    // {
-    //   field: "addOnValue",
-    //   headerName: "Add-On Value",
-    //   type: "number",
-    //   minWidth: 130,
-    //   flex: 1,
-    //   editable: false,
-    // },
-    // {
-    //   field: "comments",
-    //   headerName: "Comments",
-
-    //   minWidth: 200,
-    //   flex: 1,
-    //   editable: false,
-    // },
     {
       field: "contractNo",
       headerName: "Contract ID (Request ID)",
@@ -1229,650 +1228,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
             >
               <FontAwesomeIcon icon={faEye} title="Contract Details" />
             </Button>
-          </Stack>
-        ),
-    },
-  ];
-
-  // Add columns for "Credit Note Pending"
-  const creditNotePendingColumns: GridColDef[] = [
-    {
-      field: "contractNo",
-      headerName: "Contract No",
-      minWidth: 130,
-      flex: 1,
-      renderCell: (params: any) => (
-        <Stack direction="row" spacing={1}>
-          <a
-            href="#"
-            style={{
-              cursor: "pointer",
-              color: "#1976d2",
-              textDecoration: "underline",
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              handleShoworm(params.row.id, params.row);
-            }}
-          >
-            {params.row.contractNo}
-          </a>
-        </Stack>
-      ),
-      editable: false,
-    },
-    {
-      field: "customerName",
-      headerName: "Customer Name",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "productType",
-      headerName: "Product Type",
-      minWidth: 140,
-      flex: 1,
-    },
-    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
-    { field: "poAmount", headerName: "Po Amount", minWidth: 130, flex: 1 },
-    {
-      field: "upcomingInvoice",
-      headerName: "UpComing Invoice Date",
-      minWidth: 150,
-      flex: 1,
-    },
-    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
-    { field: "workTitle", headerName: "Work Title", minWidth: 150, flex: 1 },
-
-    {
-      field: "TotalPaymentRecieved",
-      headerName: "Invoice Recieved Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-    {
-      field: "TotalPendingAmount",
-      headerName: "Invoice Pending Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-    {
-      field: "InvoiceTaxAmount",
-      headerName: "Total Invoice Tax Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-  ];
-  // Filter rows for "Credit Note Pending"
-  const creditNotePendingRows: RowData[] =
-    financeFilter === "Credit Note Pending"
-      ? statusFilter === "Pending"
-        ? invoiceRows.filter((row) => row.prevInvoiceStatus === "Generated")
-        : invoiceRows.filter(
-            (row) => row.invoiceStatus === "Credit Note Uploaded"
-          )
-      : [];
-
-  // Loader overlay
-  const LoaderOverlay = () => (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(255,255,255,0.6)",
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Spinner animation="border" variant="primary" />
-      <span className="ms-3">Processing...</span>
-    </div>
-  );
-
-  const handleRowUpdate = (newRow: any, oldRow: any) => {
-    // Validate paymentValue for non-negative, non-zero
-
-    // Do any necessary validation or merging here
-    const updatedRow = { ...oldRow, ...newRow };
-
-    // Optionally persist or validate file input
-    if (newRow.invoiceAttachment instanceof File) {
-      // Save it to backend or local state as needed
-      console.log("File attached:", newRow.invoiceAttachment);
-    }
-
-    return updatedRow; // Must return updated row
-  };
-  const handleAttachmentChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-    row: any
-  ) => {
-    event.preventDefault();
-    const file = event.target.files?.[0];
-    if (file) {
-      setRowFiles((prev) => ({ ...prev, [row.id]: file }));
-      alert(`File "${file.name}" is selected.`);
-    } else {
-      setRowFiles((prev) => {
-        const updated = { ...prev };
-        delete updated[row.id];
-        return updated;
-      });
-
-      setTimeout(() => {
-        const grid = document.querySelector(`[data-id="${row.id}"]`);
-        if (grid) {
-        }
-      }, 0);
-    }
-  };
-
-  // const handleEmailSentDateChange = (
-  //   event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  //   row: any
-  // ) => {
-  //   const selectedDate = event.target.value;
-
-  //   // console.log("Email Sent Date for row", row.id, selectedDate);
-  // };
-
-  // const handleGenerateInvoice = (row: any) => {
-  //   // console.log("Generate Invoice for", row.id, row);
-  // };
-
-  // console.log(handleEmailSentDateChange, handleGenerateInvoice);
-
-  const handleSaveClick = (row: any) => {
-    setEditableRowId(null);
-    console.log("Save clicked for row ID:", row);
-
-    void updateInvoiceDetails(row, rowFiles[row.id]);
-  };
-
-  const updateInvoiceDetails = async (row: any, file?: File) => {
-    if (financeFilter === "Invoice Pending") {
-      setIsLoading(true);
-      // console.log("update button clicked", row);
-
-      if (!file) {
-        setIsLoading(false);
-        alert(
-          "Please select a file before saving. File selection is mandatory."
-        );
-        return;
-      }
-
-      if (
-        !row.invoiceInvoicNo ||
-        !row.invoiceInvoiceDate ||
-        !row.taxInvoiceAmount
-      ) {
-        setIsLoading(false);
-        alert(
-          "Invoice No, Invoice Date, and Tax Invoice Value are mandatory. Please fill all required fields."
-        );
-        return;
-      }
-      if (Number(row.taxInvoiceAmount) < Number(row.invoiceAmount)) {
-        setIsLoading(false);
-        alert(
-          "Tax Invoice Value must be greater than or equal to Invoice Amount."
-        );
-        return;
-      }
-
-      // console.log(row.taxInvoiceAmount, row.invoiceAmount, "row.invoiceAmount");
-      const invoiceExists = await checkInvoiceNo(row.invoiceInvoicNo);
-
-      if (invoiceExists) {
-        setIsLoading(false);
-        alert(
-          "This Invoice No already exists. Please enter a unique Invoice No."
-        );
-        return;
-      }
-
-      let uploadedFileResult = null;
-      const generatedUID = Math.random()
-        .toString(36)
-        .substr(2, 16)
-        .toUpperCase();
-
-      try {
-        // const claimNo = row.contractNo + "-" + row.invoiceClaimNo;
-        // console.log(row.contractNo, row.invoiceClaimNo, claimNo, "claimNo");
-        // You can adjust metadata, filterQuery, selectedValues as needed
-        const metadata = {
-          //  DocID: row.docID,
-          DocID: generatedUID,
-          ClaimNo: row.contractNo,
-        };
-        // console.log(metadata, "metadata");
-        uploadedFileResult = await uploadFileWithMetadata(
-          file,
-          metadata,
-          CMSInvoiceDocuments
-        );
-
-        console.log(
-          "File uploaded to SharePoint:",
-          uploadedFileResult,
-          metadata
-        );
-
-        // After successful file upload, update the SharePoint list item
-
-        const updatedata = {
-          InvoiceStatus: "Generated",
-          InvoicNo: row.invoiceInvoicNo,
-          InvoiceDate: row.invoiceInvoiceDate,
-          InvoiceTaxAmount: Number(row.taxInvoiceAmount),
-          // InvoiceFileID: row.docID,
-          InvoiceFileID: generatedUID,
-          TotalPendingAmount: Number(row.taxInvoiceAmount),
-        };
-
-        // console.log("updatedata", updatedata);
-        try {
-          const updatedData = await updateDataToSharePoint(
-            InvoicelistName,
-            updatedata,
-            siteUrl,
-            row.invoiceInvoiceID
-          );
-          console.log("updatedata", updatedData);
-
-          if (props.refreshCmsDetails) {
-            await props.refreshCmsDetails();
-          }
-
-          await refreshInvoiceDocuments();
-          setIsLoading(false);
-          alert("Invoice Generated Successfully.");
-        } catch (error) {
-          setIsLoading(false);
-          console.error("Failed to update request:", error);
-          alert(
-            "Something went wrong while sending your edit request. Please try again."
-          );
-        }
-      } catch (error) {
-        setIsLoading(false);
-        console.error("File upload failed:", error);
-        alert("File upload failed. Please try again.");
-        return;
-      }
-    } else if (financeFilter === "Payment Pending") {
-      setIsLoading(true);
-      if (!row.paymentDate || !row.paymentValue) {
-        setIsLoading(false);
-        alert(
-          "Payment Date and Payment Value are mandatory. Please fill all required fields."
-        );
-        return;
-      }
-
-      // console.log("update payment button clicked", row);
-      // console.log(row.id, "row.id");
-      const CMSRequestItemID = row.id.split("-")[0];
-      const CMSInvoiceDetailIndex = row.id.split("-")[1];
-
-      let isInvoicePaymentReceived = "";
-      let PaymentAmount: number = Number(row.paymentValue);
-      let totalRecievedAmount =
-        row.invoiceDetails[CMSInvoiceDetailIndex].TotalPaymentRecieved || 0;
-      let TaxAmount = row.taxInvoiceAmount;
-      // let totalPendingAmount =
-      //   row.invoiceDetails[CMSInvoiceDetailIndex].TotalPendingAmount || 0;
-      // console.log(totalPendingAmount);
-      totalRecievedAmount = Number(totalRecievedAmount).toFixed(2);
-      PaymentAmount = Math.round(Number(PaymentAmount) * 100) / 100;
-      let InvoiceRecievedAmount =
-        Number(totalRecievedAmount) + Number(PaymentAmount);
-      // let InvoicePendingAmount = Number(TaxAmount) - Number(InvoiceRecievedAmount);
-      const InvoicePendingAmount = Number(
-        (Number(TaxAmount) - Number(InvoiceRecievedAmount)).toFixed(2)
-      );
-      if (
-        Number(InvoiceRecievedAmount.toFixed(2)) > Number(TaxAmount.toFixed(2))
-      ) {
-        setIsLoading(false);
-        alert(
-          "Payment Value cannot be greater than the pending amount for this invoice."
-        );
-        return;
-      }
-
-      if (InvoiceRecievedAmount === 0) {
-        setIsLoading(false);
-        alert("Payment Value cannot be 0.");
-        return;
-      }
-
-      if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
-        isInvoicePaymentReceived = "Yes";
-      }
-
-      const updatedata = {
-        PaymentDate: row.paymentDate,
-        CMSRequestItemID: row.invoiceInvoiceID,
-        CMSRequestID: CMSRequestItemID,
-        ClaimNo: row.ClaimNo,
-        InvoiceTaxAmount: row.taxInvoiceAmount,
-        PaymentAmount: Number(PaymentAmount),
-        PendingAmount: InvoicePendingAmount,
-        UID: row.UID,
-        Comment: row.comments,
-      };
-
-      const updateInvoicedata = {
-        TotalPaymentRecieved: InvoiceRecievedAmount,
-        TotalPendingAmount: InvoicePendingAmount,
-        PaymentStatus: isInvoicePaymentReceived,
-      };
-
-      const updateRequestmetadata = {
-        IsPaymentReceived: "Yes",
-        RunWF: "Yes",
-      };
-
-      try {
-        const updatedData = await saveDataToSharePoint(
-          PaymentHistoryListName,
-          updatedata,
-          siteUrl
-        );
-
-        const updatedInvoiceData = await updateDataToSharePoint(
-          InvoicelistName,
-          updateInvoicedata,
-          siteUrl,
-          row.invoiceInvoiceID
-        );
-
-        if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
-          // const filterQuery = `$select=*&$filter=TotalPendingAmount ge 1 and RequestID eq ${CMSRequestItemID}`;
-          const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
-          const data = await getSharePointData(
-            props,
-            InvoicelistName,
-            filterQuery
-          );
-
-          // console.log(data, "checkdata");
-
-          if (data.length == 0) {
-            // console.log(updateRequestmetadata);
-            const updateRequestdata = await updateDataToSharePoint(
-              MainList,
-              updateRequestmetadata,
-              siteUrl,
-              CMSRequestItemID
-            );
-            console.log(
-              "updatedata",
-              updatedData,
-              updatedInvoiceData,
-              updateRequestdata
-            );
-          }
-        }
-
-        // console.log("updatedata", updatedData, updatedInvoiceData);
-
-        if (props.refreshCmsDetails) {
-          await props.refreshCmsDetails();
-        }
-        setIsLoading(false);
-        alert("Payment Added Successfully.");
-      } catch (error) {
-        setIsLoading(false);
-        console.error("Failed to update request:", error);
-        alert(
-          "Something went wrong while sending your edit request. Please try again."
-        );
-      }
-    } else {
-    }
-  };
-
-  const pendingPaymentColumns: GridColDef[] = [
-    {
-      field: "customerName",
-      headerName: "Customer Name",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "invoiceInvoicNo",
-      headerName: "Invoice No",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-
-    {
-      field: "taxInvoiceAmount",
-      headerName: "Tax Invoice Value",
-      minWidth: 150,
-      flex: 1,
-      editable: false,
-    },
-    // Editable fields
-
-    // {
-    //   field: "paymentDate",
-    //   headerName: "Payment Recieved Date",
-    //   minWidth: 200,
-    //   flex: 1,
-    //   renderCell: (params) => {
-    //     let inputValue = "";
-    //     if (params.row.paymentDate) {
-    //       const dateObj = new Date(params.row.paymentDate);
-    //       if (!isNaN(dateObj.getTime())) {
-
-    //         inputValue = dateObj.toISOString().split("T")[0];
-    //       }
-    //     }
-
-    //     return (
-    //       <div>
-    //         <TextField
-    //           size="small"
-    //           fullWidth
-    //           type="date"
-    //           sx={{ mt: 0.625 }} // 5px margin top
-    //           value={inputValue}
-    //           disabled={statusFilter !== "Pending"}
-    //           onChange={(e) => {
-    //             params.api.updateRows([
-    //               { ...params.row, paymentDate: e.target.value }
-    //             ]);
-    //           }}
-    //           InputLabelProps={{ shrink: true }}
-    //         />
-
-    //       </div>
-    //     );
-    //   },
-    // },
-    {
-      field: "paymentDate",
-      headerName: "Payment Recieved Date",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => {
-        // Use moment for value, fallback to null
-        const value = params.row.paymentDate
-          ? moment(params.row.paymentDate, "YYYY-MM-DD", true).isValid()
-            ? moment(params.row.paymentDate)
-            : null
-          : null;
-
-        return (
-          <DatePicker
-            format="DD-MM-YYYY"
-            value={value}
-            style={{ width: "100%", marginTop: 5 }}
-            disabled={statusFilter !== "Pending"}
-            onChange={(date) => {
-              params.api.updateRows([
-                {
-                  ...params.row,
-                  paymentDate: date ? date.format("YYYY-MM-DD") : "",
-                },
-              ]);
-            }}
-            allowClear
-            disabledDate={(current) =>
-              current && current > moment().endOf("day")
-            }
-          />
-        );
-      },
-    },
-
-    {
-      field: "paymentValue",
-      headerName: "Amount Recieved",
-      type: "number",
-      minWidth: 170,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          type="number"
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.paymentValue || ""}
-          disabled={statusFilter !== "Pending"}
-          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "-" || e.key === "+") {
-              e.preventDefault(); // block minus, plus
-            }
-          }}
-          onChange={(e) => {
-            const value = e.target.value;
-
-            if (value === "") {
-              params.api.updateRows([{ ...params.row, paymentValue: "" }]);
-              return;
-            }
-
-            if (parseFloat(value) > 0) {
-              params.api.updateRows([{ ...params.row, paymentValue: value }]);
-            } else {
-              alert("Payment Value must be greater than 0.");
-            }
-          }}
-        />
-      ),
-    },
-    {
-      field: "InvoiceTotalPaymentRecieved",
-      headerName: "Total Recieved Payment Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "invoiceTotalPendingAmount",
-      headerName: "Total Pending Payment Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-
-    {
-      field: "comments",
-      headerName: "Comments",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.comments || ""}
-          disabled={statusFilter !== "Pending"}
-          onChange={(e) => {
-            params.api.updateRows([
-              { ...params.row, comments: e.target.value },
-            ]);
-          }}
-        />
-      ),
-    },
-    {
-      field: "contractNo",
-      headerName: "Contract ID (Request ID)",
-      minWidth: 130,
-      flex: 1,
-      renderCell: (params: any) => {
-        return (
-          <Stack direction="row" spacing={1}>
-            <a
-              href="#"
-              style={{
-                cursor: "pointer",
-                color: "#1976d2",
-                textDecoration: "underline",
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                handleShoworm(params.row.id, params.row);
-              }}
-            >
-              {params.row.contractNo}
-            </a>
-          </Stack>
-        );
-      },
-      editable: false,
-      // hideable: true,
-    },
-    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
-    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
-    {
-      field: "action",
-      headerName: " ",
-
-      minWidth: 280,
-      flex: 1,
-      renderCell: (params) =>
-        statusFilter === "Done" ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-                marginRight: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
             {/* <Button
               variant="outlined"
               style={{ color: "#1976d2", borderColor: "#1976d2" }}
@@ -1900,1553 +1255,403 @@ const Dashboard = (props: ICmsRebuildProps) => {
               </Button>
             )}
           </Stack>
-        ) : editableRowId === params.row.id ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-            {/* <Button
-              variant="outlined"
-              style={{ color: "#1976d2", borderColor: "#1976d2" }}
-            >
-              <FontAwesomeIcon
-                            icon={faClockRotateLeft}
-                            title="Payment History"
-                          />
-            </Button> */}
-            {params.row.InvoiceTotalPaymentRecieved > 0 && (
-              <Button
-                variant="outlined"
-                style={{
-                  color: "#1976d2",
-                  borderColor: "#1976d2",
-                  marginLeft: "10px",
-                }}
-                onClick={() => handleHistoryClick(params.row)}
-              >
-                <FontAwesomeIcon
-                  icon={faClockRotateLeft}
-                  title="Payment History"
-                />
-              </Button>
-            )}
-          </Stack>
-        ) : (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-            <Button
-              variant="contained"
-              // color="primary"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
-          </Stack>
         ),
     },
   ];
 
-  // Add columns for "Credit Note Pending"
-  const creditNotePendingColumns: GridColDef[] = [
-    {
-      field: "contractNo",
-      headerName: "Contract No",
-      minWidth: 130,
-      flex: 1,
-      renderCell: (params: any) => (
-        <Stack direction="row" spacing={1}>
-          <a
-            href="#"
-            style={{
-              cursor: "pointer",
-              color: "#1976d2",
-              textDecoration: "underline",
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              handleShoworm(params.row.id, params.row);
-            }}
-          >
-            {params.row.contractNo}
-          </a>
-        </Stack>
-      ),
-      editable: false,
-    },
-    {
-      field: "customerName",
-      headerName: "Customer Name",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "productType",
-      headerName: "Product Type",
-      minWidth: 140,
-      flex: 1,
-    },
-    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
-    { field: "poAmount", headerName: "Po Amount", minWidth: 130, flex: 1 },
-    {
-      field: "upcomingInvoice",
-      headerName: "UpComing Invoice Date",
-      minWidth: 150,
-      flex: 1,
-    },
-    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
-    { field: "workTitle", headerName: "Work Title", minWidth: 150, flex: 1 },
+  // Define columns for "Credit Note Pending"
+  const creditNotePendingColumns: GridColDef[] =
+    statusFilter === "Pending"
+      ? [
+          {
+            field: "contractNo",
+            headerName: "Contract No",
+            minWidth: 130,
+            flex: 1,
+            renderCell: (params: any) => (
+              <Stack direction="row" spacing={1}>
+                <a
+                  href="#"
+                  style={{
+                    cursor: "pointer",
+                    color: "#1976d2",
+                    textDecoration: "underline",
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleShoworm(params.row.id, params.row);
+                  }}
+                >
+                  {params.row.contractNo}
+                </a>
+              </Stack>
+            ),
+            editable: false,
+          },
+          {
+            field: "customerName",
+            headerName: "Customer Name",
+            minWidth: 140,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "invoiceInvoicNo",
+            headerName: "Invoice No",
+            minWidth: 200,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "taxInvoiceAmount",
+            headerName: "Tax Invoice Value",
+            minWidth: 150,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "InvoiceTotalPaymentRecieved",
+            headerName: "Total Recieved Payment Amount",
+            type: "number",
+            minWidth: 130,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "invoiceTotalPendingAmount",
+            headerName: "Total Pending Payment Amount",
+            type: "number",
+            minWidth: 130,
+            flex: 1,
+            editable: false,
+          },
+          // {
+          //   field: "invoiceInvoicNo",
+          //   headerName: "Invoice No",
+          //   minWidth: 200,
+          //   flex: 1,
+          //   editable: false,
+          // },
 
-    {
-      field: "TotalPaymentRecieved",
-      headerName: "Invoice Recieved Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-    {
-      field: "TotalPendingAmount",
-      headerName: "Invoice Pending Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-    {
-      field: "InvoiceTaxAmount",
-      headerName: "Total Invoice Tax Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-  ];
+          {
+            field: "creditNoteFile",
+            headerName: "Credit Note",
+            minWidth: 200,
+            flex: 1,
+            renderCell: (params) => (
+              <div style={{ width: "100%" }}>
+                <input
+                  type="file"
+                  // style={{ width: "100%" }}
+                  className="form-control"
+                  style={{
+                    marginTop: "5px",
+                  }}
+                  onChange={(e) => handleAttachmentChange(e, params.row)}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{ display: "none", mt: 1, wordBreak: "break-all" }}
+                >
+                  {rowFiles[params.row.id]?.name || ""}
+                </Typography>
+                {/* Use fileVersion to force re-render */}
+                {/* <span style={{ display: "none" }}>{params.row.fileVersion}</span> */}
+              </div>
+            ),
+          },
+          {
+            field: "description",
+            headerName: "Description",
+            minWidth: 200,
+            flex: 1,
+            renderCell: (params) => (
+              <TextField
+                size="small"
+                fullWidth
+                value={params.row.description || ""}
+                onChange={(e) => {
+                  params.api.updateRows([
+                    { ...params.row, description: e.target.value },
+                  ]);
+                }}
+              />
+            ),
+          },
+          {
+            field: "action",
+            headerName: "Action",
+            minWidth: 200,
+            flex: 1,
+            renderCell: (params) => (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => handleUploadCreditNote(params.row)}
+              >
+                Upload Credit Note
+              </Button>
+            ),
+          },
+        ]
+      : [
+          {
+            field: "contractNo",
+            headerName: "Contract No",
+            minWidth: 130,
+            flex: 1,
+            renderCell: (params: any) => (
+              <Stack direction="row" spacing={1}>
+                <a
+                  href="#"
+                  style={{
+                    cursor: "pointer",
+                    color: "#1976d2",
+                    textDecoration: "underline",
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleShoworm(params.row.id, params.row);
+                  }}
+                >
+                  {params.row.contractNo}
+                </a>
+              </Stack>
+            ),
+            editable: false,
+          },
+          {
+            field: "customerName",
+            headerName: "Customer Name",
+            minWidth: 140,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "invoiceInvoicNo",
+            headerName: "Invoice No",
+            minWidth: 200,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "taxInvoiceAmount",
+            headerName: "Tax Invoice Value",
+            minWidth: 150,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "InvoiceTotalPaymentRecieved",
+            headerName: "Total Recieved Payment Amount",
+            type: "number",
+            minWidth: 130,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "invoiceTotalPendingAmount",
+            headerName: "Total Pending Payment Amount",
+            type: "number",
+            minWidth: 130,
+            flex: 1,
+            editable: false,
+          },
+          {
+            field: "CreditNote",
+            headerName: "Credit Note",
+            minWidth: 200,
+            flex: 1,
+            renderCell: (params) => {
+              const [creditNoteDetails, setCreditNoteDetails] =
+                React.useState<any>(null);
+
+              React.useEffect(() => {
+                const fetchDetails = async () => {
+                  const details = await fetchCreditNoteDetails(
+                    params.row.invoiceInvoiceID
+                  );
+                  setCreditNoteDetails(details);
+                };
+                fetchDetails();
+              }, [params.row.invoiceInvoiceID]);
+
+              return creditNoteDetails ? (
+                <a
+                  href={creditNoteDetails.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#1976d2",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  {creditNoteDetails.fileName}
+                </a>
+              ) : (
+                <span style={{ color: "#888" }}>No File</span>
+              );
+            },
+          },
+          {
+            field: "Description",
+            headerName: "Description",
+            minWidth: 200,
+            flex: 1,
+            renderCell: (params) => {
+              const [creditNoteDetails, setCreditNoteDetails] =
+                React.useState<any>(null);
+
+              React.useEffect(() => {
+                const fetchDetails = async () => {
+                  const details = await fetchCreditNoteDetails(
+                    params.row.invoiceInvoiceID
+                  );
+                  setCreditNoteDetails(details);
+                };
+                fetchDetails();
+              }, [params.row.invoiceInvoiceID]);
+
+              return creditNoteDetails ? (
+                <span>{creditNoteDetails.description || "No Description"}</span>
+              ) : (
+                <span style={{ color: "#888" }}>Loading...</span>
+              );
+            },
+          },
+        ];
+
+  // Prepare invoiceRows before using it in creditNotePendingRows
+  const invoiceRowsForCreditNote: RowData[] = props.cmsDetails
+    .filter((item) => item.CloseStatus !== "Deleted")
+    .flatMap((item) =>
+      item.invoiceDetails.map(
+        (
+          detail: {
+            TotalPaymentRecieved: any;
+            TotalPendingAmount: any;
+            InvoiceStatus: any;
+            PrevInvoiceStatus: any;
+            CreditNoteStatus: any;
+            InvoiceAmount: any;
+            InvoiceFileID: any;
+            ClaimNo: any;
+            PaymentStatus: any;
+            Comments: any;
+            InvoicNo: any;
+            InvoiceTaxAmount: any;
+            InvoiceDate: any;
+            PaymentDate: any;
+            ID: any;
+            RequestID: any;
+          },
+          index: any
+        ) => {
+          const matchingPoDoc = contractDocuments.find(
+            (doc) => `${doc.FileID}` === `${item.UID}`
+          );
+
+          return {
+            id: `${item.Id}-${index}`,
+            contractNo: item.RequestID,
+            customerName: item.CustomerName,
+            productType: item.ProductType,
+            isAzureRequestClosed: item?.IsAzureRequestClosed,
+            poNo: item.PoNo,
+            poAmount: item.POAmount,
+            paymentMode: item.PaymentMode,
+            poDate:
+              item?.PoDate &&
+              new Date(item.PoDate).toLocaleDateString("en-GB") !== "01/01/1970"
+                ? new Date(item.PoDate).toLocaleDateString("en-GB")
+                : "",
+            workTitle: item.WorkTitle,
+            upcomingInvoice: item.UpComingInvoiceDate,
+            totalPaymentRecievedAmt: item.NewPaymentTotal,
+            totalPendingAmt: item.NewPendingTotal,
+            employeeName: item.EmployeeName,
+            employeeEmail: item.EmployeeEmail,
+            accountManger: item.AccountManger,
+            accountMangerEmail: item.AccountManger?.EMail || "",
+
+            projectLeadEmail: item.ProjectManager?.EMail || "",
+            projectMangerEmail: item.ProjectManager?.EMail || "",
+            projectMangerTitle: item.ProjectManager?.Title || "",
+            accountMangerTitle: item.AccountManger?.Title || "",
+            projectLeadTitle: item.AccountManger?.Title || "",
+
+            customerEmail: item.CustomerEmail,
+            delegateEmployeeEmail: item.DelegateEmployeeEmail,
+            companyName: item.CompanyName,
+            govtContract: item.GovtContract,
+            bgRequired: item.BGRequired,
+            location: item.Location,
+            customerLocation: item.CustomerLocation,
+            workDetail: item.WorkDetails,
+            renewalRequired: item.RenewalRequired,
+            contractType: item.ContractType,
+            bgDate: item.BGDate,
+            accountMangerId: item.AccountMangerId,
+
+            docID: item.UID,
+            invoiceDetails: item.invoiceDetails,
+            currency: item.Currency,
+            approverStatus: item.ApproverStatus,
+            isCreditNoteUploaded: item.IsCreditNoteUploaded,
+            isPaymentReceived: item.IsPaymentReceived,
+            invoiceStatus: detail.InvoiceStatus,
+            prevInvoiceStatus: detail.PrevInvoiceStatus,
+            creditNoteStatus: detail.CreditNoteStatus,
+            invoiceAmount: detail.InvoiceAmount,
+            paymentStatus: detail.PaymentStatus,
+            invoiceComments: detail.Comments,
+            invoiceInvoiceFileID: detail.InvoiceFileID,
+            invoiceInvoicNo: detail.InvoicNo || "",
+            taxInvoiceAmount: detail.InvoiceTaxAmount,
+            invoiceInvoiceDate: detail.InvoiceDate
+              ? new Date(detail.InvoiceDate)
+              : new Date(),
+            invoicePaymentDate: detail.PaymentDate,
+            invoiceInvoiceID: detail.ID,
+            invoiceInvoiceRequestID: detail.RequestID,
+            InvoiceTotalPaymentRecieved: detail.TotalPaymentRecieved || 0,
+            TotalPaymentRecieved: item.TotalPaymentRecieved || 0,
+            TotalPendingAmount: item.TotalPendingAmount || 0,
+            InvoiceTaxAmount: item.InvoiceTaxAmount || 0,
+            invoiceTotalPendingAmount:
+              detail.TotalPendingAmount && detail.TotalPendingAmount > 0
+                ? Number(detail.TotalPendingAmount)
+                : Number(detail.InvoiceTaxAmount ?? 0),
+
+            startDate: item.StartDateResource,
+            endDate: item.EndDateResource,
+            invoiceCriteria: item.InvoiceCriteria,
+
+            poId: matchingPoDoc?.Id ?? null,
+            poFileLeafRef: matchingPoDoc?.FileLeafRef ?? "",
+            poFileID: matchingPoDoc?.FileID ?? "",
+            poFileRef: matchingPoDoc?.FileRef ?? "",
+            poAttachmentType: matchingPoDoc?.AttachmentType ?? "",
+            poEncodedAbsUrl: matchingPoDoc?.EncodedAbsUrl ?? "",
+          };
+        }
+      )
+    );
+
   // Filter rows for "Credit Note Pending"
   const creditNotePendingRows: RowData[] =
-    financeFilter === "Credit Note Pending"
-      ? statusFilter === "Pending"
-        ? invoiceRows.filter((row) => row.prevInvoiceStatus === "Generated")
-        : invoiceRows.filter(
-            (row) => row.invoiceStatus === "Credit Note Uploaded"
-          )
-      : [];
-
-  // Loader overlay
-  const LoaderOverlay = () => (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(255,255,255,0.6)",
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Spinner animation="border" variant="primary" />
-      <span className="ms-3">Processing...</span>
-    </div>
-  );
-
-  const handleRowUpdate = (newRow: any, oldRow: any) => {
-    // Validate paymentValue for non-negative, non-zero
-
-    // Do any necessary validation or merging here
-    const updatedRow = { ...oldRow, ...newRow };
-
-    // Optionally persist or validate file input
-    if (newRow.invoiceAttachment instanceof File) {
-      // Save it to backend or local state as needed
-      console.log("File attached:", newRow.invoiceAttachment);
-    }
-
-    return updatedRow; // Must return updated row
-  };
-  const handleAttachmentChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-    row: any
-  ) => {
-    event.preventDefault();
-    const file = event.target.files?.[0];
-    if (file) {
-      setRowFiles((prev) => ({ ...prev, [row.id]: file }));
-      alert(`File "${file.name}" is selected.`);
-    } else {
-      setRowFiles((prev) => {
-        const updated = { ...prev };
-        delete updated[row.id];
-        return updated;
-      });
-
-      setTimeout(() => {
-        const grid = document.querySelector(`[data-id="${row.id}"]`);
-        if (grid) {
-        }
-      }, 0);
-    }
-  };
-
-  // const handleEmailSentDateChange = (
-  //   event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  //   row: any
-  // ) => {
-  //   const selectedDate = event.target.value;
-
-  //   // console.log("Email Sent Date for row", row.id, selectedDate);
-  // };
-
-  // const handleGenerateInvoice = (row: any) => {
-  //   // console.log("Generate Invoice for", row.id, row);
-  // };
-
-  // console.log(handleEmailSentDateChange, handleGenerateInvoice);
-
-  const handleSaveClick = (row: any) => {
-    setEditableRowId(null);
-    console.log("Save clicked for row ID:", row);
-
-    void updateInvoiceDetails(row, rowFiles[row.id]);
-  };
-
-  const updateInvoiceDetails = async (row: any, file?: File) => {
-    if (financeFilter === "Invoice Pending") {
-      setIsLoading(true);
-      // console.log("update button clicked", row);
-
-      if (!file) {
-        setIsLoading(false);
-        alert(
-          "Please select a file before saving. File selection is mandatory."
-        );
-        return;
-      }
-
-      if (
-        !row.invoiceInvoicNo ||
-        !row.invoiceInvoiceDate ||
-        !row.taxInvoiceAmount
-      ) {
-        setIsLoading(false);
-        alert(
-          "Invoice No, Invoice Date, and Tax Invoice Value are mandatory. Please fill all required fields."
-        );
-        return;
-      }
-      if (Number(row.taxInvoiceAmount) < Number(row.invoiceAmount)) {
-        setIsLoading(false);
-        alert(
-          "Tax Invoice Value must be greater than or equal to Invoice Amount."
-        );
-        return;
-      }
-
-      // console.log(row.taxInvoiceAmount, row.invoiceAmount, "row.invoiceAmount");
-      const invoiceExists = await checkInvoiceNo(row.invoiceInvoicNo);
-
-      if (invoiceExists) {
-        setIsLoading(false);
-        alert(
-          "This Invoice No already exists. Please enter a unique Invoice No."
-        );
-        return;
-      }
-
-      let uploadedFileResult = null;
-      const generatedUID = Math.random()
-        .toString(36)
-        .substr(2, 16)
-        .toUpperCase();
-
-      try {
-        // const claimNo = row.contractNo + "-" + row.invoiceClaimNo;
-        // console.log(row.contractNo, row.invoiceClaimNo, claimNo, "claimNo");
-        // You can adjust metadata, filterQuery, selectedValues as needed
-        const metadata = {
-          //  DocID: row.docID,
-          DocID: generatedUID,
-          ClaimNo: row.contractNo,
-        };
-        // console.log(metadata, "metadata");
-        uploadedFileResult = await uploadFileWithMetadata(
-          file,
-          metadata,
-          CMSInvoiceDocuments
-        );
-
-        console.log(
-          "File uploaded to SharePoint:",
-          uploadedFileResult,
-          metadata
-        );
-
-        // After successful file upload, update the SharePoint list item
-
-        const updatedata = {
-          InvoiceStatus: "Generated",
-          InvoicNo: row.invoiceInvoicNo,
-          InvoiceDate: row.invoiceInvoiceDate,
-          InvoiceTaxAmount: Number(row.taxInvoiceAmount),
-          // InvoiceFileID: row.docID,
-          InvoiceFileID: generatedUID,
-          TotalPendingAmount: Number(row.taxInvoiceAmount),
-        };
-
-        // console.log("updatedata", updatedata);
-        try {
-          const updatedData = await updateDataToSharePoint(
-            InvoicelistName,
-            updatedata,
-            siteUrl,
-            row.invoiceInvoiceID
-          );
-          console.log("updatedata", updatedData);
-
-          if (props.refreshCmsDetails) {
-            await props.refreshCmsDetails();
-          }
-
-          await refreshInvoiceDocuments();
-          setIsLoading(false);
-          alert("Invoice Generated Successfully.");
-        } catch (error) {
-          setIsLoading(false);
-          console.error("Failed to update request:", error);
-          alert(
-            "Something went wrong while sending your edit request. Please try again."
-          );
-        }
-      } catch (error) {
-        setIsLoading(false);
-        console.error("File upload failed:", error);
-        alert("File upload failed. Please try again.");
-        return;
-      }
-    } else if (financeFilter === "Payment Pending") {
-      setIsLoading(true);
-      if (!row.paymentDate || !row.paymentValue) {
-        setIsLoading(false);
-        alert(
-          "Payment Date and Payment Value are mandatory. Please fill all required fields."
-        );
-        return;
-      }
-
-      // console.log("update payment button clicked", row);
-      // console.log(row.id, "row.id");
-      const CMSRequestItemID = row.id.split("-")[0];
-      const CMSInvoiceDetailIndex = row.id.split("-")[1];
-
-      let isInvoicePaymentReceived = "";
-      let PaymentAmount: number = Number(row.paymentValue);
-      let totalRecievedAmount =
-        row.invoiceDetails[CMSInvoiceDetailIndex].TotalPaymentRecieved || 0;
-      let TaxAmount = row.taxInvoiceAmount;
-      // let totalPendingAmount =
-      //   row.invoiceDetails[CMSInvoiceDetailIndex].TotalPendingAmount || 0;
-      // console.log(totalPendingAmount);
-      totalRecievedAmount = Number(totalRecievedAmount).toFixed(2);
-      PaymentAmount = Math.round(Number(PaymentAmount) * 100) / 100;
-      let InvoiceRecievedAmount =
-        Number(totalRecievedAmount) + Number(PaymentAmount);
-      // let InvoicePendingAmount = Number(TaxAmount) - Number(InvoiceRecievedAmount);
-      const InvoicePendingAmount = Number(
-        (Number(TaxAmount) - Number(InvoiceRecievedAmount)).toFixed(2)
-      );
-      if (
-        Number(InvoiceRecievedAmount.toFixed(2)) > Number(TaxAmount.toFixed(2))
-      ) {
-        setIsLoading(false);
-        alert(
-          "Payment Value cannot be greater than the pending amount for this invoice."
-        );
-        return;
-      }
-
-      if (InvoiceRecievedAmount === 0) {
-        setIsLoading(false);
-        alert("Payment Value cannot be 0.");
-        return;
-      }
-
-      if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
-        isInvoicePaymentReceived = "Yes";
-      }
-
-      const updatedata = {
-        PaymentDate: row.paymentDate,
-        CMSRequestItemID: row.invoiceInvoiceID,
-        CMSRequestID: CMSRequestItemID,
-        ClaimNo: row.ClaimNo,
-        InvoiceTaxAmount: row.taxInvoiceAmount,
-        PaymentAmount: Number(PaymentAmount),
-        PendingAmount: InvoicePendingAmount,
-        UID: row.UID,
-        Comment: row.comments,
-      };
-
-      const updateInvoicedata = {
-        TotalPaymentRecieved: InvoiceRecievedAmount,
-        TotalPendingAmount: InvoicePendingAmount,
-        PaymentStatus: isInvoicePaymentReceived,
-      };
-
-      const updateRequestmetadata = {
-        IsPaymentReceived: "Yes",
-        RunWF: "Yes",
-      };
-
-      try {
-        const updatedData = await saveDataToSharePoint(
-          PaymentHistoryListName,
-          updatedata,
-          siteUrl
-        );
-
-        const updatedInvoiceData = await updateDataToSharePoint(
-          InvoicelistName,
-          updateInvoicedata,
-          siteUrl,
-          row.invoiceInvoiceID
-        );
-
-        if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
-          // const filterQuery = `$select=*&$filter=TotalPendingAmount ge 1 and RequestID eq ${CMSRequestItemID}`;
-          const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
-          const data = await getSharePointData(
-            props,
-            InvoicelistName,
-            filterQuery
-          );
-
-          // console.log(data, "checkdata");
-
-          if (data.length == 0) {
-            // console.log(updateRequestmetadata);
-            const updateRequestdata = await updateDataToSharePoint(
-              MainList,
-              updateRequestmetadata,
-              siteUrl,
-              CMSRequestItemID
-            );
-            console.log(
-              "updatedata",
-              updatedData,
-              updatedInvoiceData,
-              updateRequestdata
-            );
-          }
-        }
-
-        // console.log("updatedata", updatedData, updatedInvoiceData);
-
-        if (props.refreshCmsDetails) {
-          await props.refreshCmsDetails();
-        }
-        setIsLoading(false);
-        alert("Payment Added Successfully.");
-      } catch (error) {
-        setIsLoading(false);
-        console.error("Failed to update request:", error);
-        alert(
-          "Something went wrong while sending your edit request. Please try again."
-        );
-      }
-    } else {
-    }
-  };
-
-  const pendingPaymentColumns: GridColDef[] = [
-    {
-      field: "customerName",
-      headerName: "Customer Name",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "invoiceInvoicNo",
-      headerName: "Invoice No",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-
-    {
-      field: "taxInvoiceAmount",
-      headerName: "Tax Invoice Value",
-      minWidth: 150,
-      flex: 1,
-      editable: false,
-    },
-    // Editable fields
-
-    // {
-    //   field: "paymentDate",
-    //   headerName: "Payment Recieved Date",
-    //   minWidth: 200,
-    //   flex: 1,
-    //   renderCell: (params) => {
-    //     let inputValue = "";
-    //     if (params.row.paymentDate) {
-    //       const dateObj = new Date(params.row.paymentDate);
-    //       if (!isNaN(dateObj.getTime())) {
-
-    //         inputValue = dateObj.toISOString().split("T")[0];
-    //       }
-    //     }
-
-    //     return (
-    //       <div>
-    //         <TextField
-    //           size="small"
-    //           fullWidth
-    //           type="date"
-    //           sx={{ mt: 0.625 }} // 5px margin top
-    //           value={inputValue}
-    //           disabled={statusFilter !== "Pending"}
-    //           onChange={(e) => {
-    //             params.api.updateRows([
-    //               { ...params.row, paymentDate: e.target.value }
-    //             ]);
-    //           }}
-    //           InputLabelProps={{ shrink: true }}
-    //         />
-
-    //       </div>
-    //     );
-    //   },
-    // },
-    {
-      field: "paymentDate",
-      headerName: "Payment Recieved Date",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => {
-        // Use moment for value, fallback to null
-        const value = params.row.paymentDate
-          ? moment(params.row.paymentDate, "YYYY-MM-DD", true).isValid()
-            ? moment(params.row.paymentDate)
-            : null
-          : null;
-
-        return (
-          <DatePicker
-            format="DD-MM-YYYY"
-            value={value}
-            style={{ width: "100%", marginTop: 5 }}
-            disabled={statusFilter !== "Pending"}
-            onChange={(date) => {
-              params.api.updateRows([
-                {
-                  ...params.row,
-                  paymentDate: date ? date.format("YYYY-MM-DD") : "",
-                },
-              ]);
-            }}
-            allowClear
-            disabledDate={(current) =>
-              current && current > moment().endOf("day")
-            }
-          />
-        );
-      },
-    },
-
-    {
-      field: "paymentValue",
-      headerName: "Amount Recieved",
-      type: "number",
-      minWidth: 170,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          type="number"
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.paymentValue || ""}
-          disabled={statusFilter !== "Pending"}
-          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "-" || e.key === "+") {
-              e.preventDefault(); // block minus, plus
-            }
-          }}
-          onChange={(e) => {
-            const value = e.target.value;
-
-            if (value === "") {
-              params.api.updateRows([{ ...params.row, paymentValue: "" }]);
-              return;
-            }
-
-            if (parseFloat(value) > 0) {
-              params.api.updateRows([{ ...params.row, paymentValue: value }]);
-            } else {
-              alert("Payment Value must be greater than 0.");
-            }
-          }}
-        />
-      ),
-    },
-    {
-      field: "InvoiceTotalPaymentRecieved",
-      headerName: "Total Recieved Payment Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "invoiceTotalPendingAmount",
-      headerName: "Total Pending Payment Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-
-    {
-      field: "comments",
-      headerName: "Comments",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.comments || ""}
-          disabled={statusFilter !== "Pending"}
-          onChange={(e) => {
-            params.api.updateRows([
-              { ...params.row, comments: e.target.value },
-            ]);
-          }}
-        />
-      ),
-    },
-    {
-      field: "contractNo",
-      headerName: "Contract ID (Request ID)",
-      minWidth: 130,
-      flex: 1,
-      renderCell: (params: any) => {
-        return (
-          <Stack direction="row" spacing={1}>
-            <a
-              href="#"
-              style={{
-                cursor: "pointer",
-                color: "#1976d2",
-                textDecoration: "underline",
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                handleShoworm(params.row.id, params.row);
-              }}
-            >
-              {params.row.contractNo}
-            </a>
-          </Stack>
-        );
-      },
-      editable: false,
-      // hideable: true,
-    },
-    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
-    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
-    {
-      field: "action",
-      headerName: " ",
-
-      minWidth: 280,
-      flex: 1,
-      renderCell: (params) =>
-        statusFilter === "Done" ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-                marginRight: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
-            {/* <Button
-              variant="outlined"
-              style={{ color: "#1976d2", borderColor: "#1976d2" }}
-              onClick={() => handleHistoryClick(params.row)}
-            >
-              <FontAwesomeIcon
-                            icon={faClockRotateLeft}
-                            title="Payment History"
-                          />
-            </Button> */}
-            {params.row.InvoiceTotalPaymentRecieved > 0 && (
-              <Button
-                variant="outlined"
-                style={{
-                  color: "#1976d2",
-                  borderColor: "#1976d2",
-                  marginLeft: "10px",
-                }}
-                onClick={() => handleHistoryClick(params.row)}
-              >
-                <FontAwesomeIcon
-                  icon={faClockRotateLeft}
-                  title="Payment History"
-                />
-              </Button>
-            )}
-          </Stack>
-        ) : editableRowId === params.row.id ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-            {/* <Button
-              variant="outlined"
-              style={{ color: "#1976d2", borderColor: "#1976d2" }}
-            >
-              <FontAwesomeIcon
-                            icon={faClockRotateLeft}
-                            title="Payment History"
-                          />
-            </Button> */}
-            {params.row.InvoiceTotalPaymentRecieved > 0 && (
-              <Button
-                variant="outlined"
-                style={{
-                  color: "#1976d2",
-                  borderColor: "#1976d2",
-                  marginLeft: "10px",
-                }}
-                onClick={() => handleHistoryClick(params.row)}
-              >
-                <FontAwesomeIcon
-                  icon={faClockRotateLeft}
-                  title="Payment History"
-                />
-              </Button>
-            )}
-          </Stack>
-        ) : (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-            <Button
-              variant="contained"
-              // color="primary"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
-          </Stack>
-        ),
-    },
-  ];
-
-  // Add columns for "Credit Note Pending"
-  const creditNotePendingColumns: GridColDef[] = [
-    {
-      field: "contractNo",
-      headerName: "Contract No",
-      minWidth: 130,
-      flex: 1,
-      renderCell: (params: any) => (
-        <Stack direction="row" spacing={1}>
-          <a
-            href="#"
-            style={{
-              cursor: "pointer",
-              color: "#1976d2",
-              textDecoration: "underline",
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              handleShoworm(params.row.id, params.row);
-            }}
-          >
-            {params.row.contractNo}
-          </a>
-        </Stack>
-      ),
-      editable: false,
-    },
-    {
-      field: "customerName",
-      headerName: "Customer Name",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "productType",
-      headerName: "Product Type",
-      minWidth: 140,
-      flex: 1,
-    },
-    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
-    { field: "poAmount", headerName: "Po Amount", minWidth: 130, flex: 1 },
-    {
-      field: "upcomingInvoice",
-      headerName: "UpComing Invoice Date",
-      minWidth: 150,
-      flex: 1,
-    },
-    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
-    { field: "workTitle", headerName: "Work Title", minWidth: 150, flex: 1 },
-
-    {
-      field: "TotalPaymentRecieved",
-      headerName: "Invoice Recieved Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-    {
-      field: "TotalPendingAmount",
-      headerName: "Invoice Pending Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-    {
-      field: "InvoiceTaxAmount",
-      headerName: "Total Invoice Tax Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-      valueFormatter: twoDecimalFormatter,
-    },
-  ];
-  // Filter rows for "Credit Note Pending"
-  const creditNotePendingRows: RowData[] =
-    financeFilter === "Credit Note Pending"
-      ? statusFilter === "Pending"
-        ? invoiceRows.filter((row) => row.prevInvoiceStatus === "Generated")
-        : invoiceRows.filter(
-            (row) => row.invoiceStatus === "Credit Note Uploaded"
-          )
-      : [];
-
-  // Loader overlay
-  const LoaderOverlay = () => (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(255,255,255,0.6)",
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Spinner animation="border" variant="primary" />
-      <span className="ms-3">Processing...</span>
-    </div>
-  );
-
-  const handleRowUpdate = (newRow: any, oldRow: any) => {
-    // Validate paymentValue for non-negative, non-zero
-
-    // Do any necessary validation or merging here
-    const updatedRow = { ...oldRow, ...newRow };
-
-    // Optionally persist or validate file input
-    if (newRow.invoiceAttachment instanceof File) {
-      // Save it to backend or local state as needed
-      console.log("File attached:", newRow.invoiceAttachment);
-    }
-
-    return updatedRow; // Must return updated row
-  };
-  const handleAttachmentChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-    row: any
-  ) => {
-    event.preventDefault();
-    const file = event.target.files?.[0];
-    if (file) {
-      setRowFiles((prev) => ({ ...prev, [row.id]: file }));
-      alert(`File "${file.name}" is selected.`);
-    } else {
-      setRowFiles((prev) => {
-        const updated = { ...prev };
-        delete updated[row.id];
-        return updated;
-      });
-
-      setTimeout(() => {
-        const grid = document.querySelector(`[data-id="${row.id}"]`);
-        if (grid) {
-        }
-      }, 0);
-    }
-  };
-
-  // const handleEmailSentDateChange = (
-  //   event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  //   row: any
-  // ) => {
-  //   const selectedDate = event.target.value;
-
-  //   // console.log("Email Sent Date for row", row.id, selectedDate);
-  // };
-
-  // const handleGenerateInvoice = (row: any) => {
-  //   // console.log("Generate Invoice for", row.id, row);
-  // };
-
-  // console.log(handleEmailSentDateChange, handleGenerateInvoice);
-
-  const handleSaveClick = (row: any) => {
-    setEditableRowId(null);
-    console.log("Save clicked for row ID:", row);
-
-    void updateInvoiceDetails(row, rowFiles[row.id]);
-  };
-
-  const updateInvoiceDetails = async (row: any, file?: File) => {
-    if (financeFilter === "Invoice Pending") {
-      setIsLoading(true);
-      // console.log("update button clicked", row);
-
-      if (!file) {
-        setIsLoading(false);
-        alert(
-          "Please select a file before saving. File selection is mandatory."
-        );
-        return;
-      }
-
-      if (
-        !row.invoiceInvoicNo ||
-        !row.invoiceInvoiceDate ||
-        !row.taxInvoiceAmount
-      ) {
-        setIsLoading(false);
-        alert(
-          "Invoice No, Invoice Date, and Tax Invoice Value are mandatory. Please fill all required fields."
-        );
-        return;
-      }
-      if (Number(row.taxInvoiceAmount) < Number(row.invoiceAmount)) {
-        setIsLoading(false);
-        alert(
-          "Tax Invoice Value must be greater than or equal to Invoice Amount."
-        );
-        return;
-      }
-
-      // console.log(row.taxInvoiceAmount, row.invoiceAmount, "row.invoiceAmount");
-      const invoiceExists = await checkInvoiceNo(row.invoiceInvoicNo);
-
-      if (invoiceExists) {
-        setIsLoading(false);
-        alert(
-          "This Invoice No already exists. Please enter a unique Invoice No."
-        );
-        return;
-      }
-
-      let uploadedFileResult = null;
-      const generatedUID = Math.random()
-        .toString(36)
-        .substr(2, 16)
-        .toUpperCase();
-
-      try {
-        // const claimNo = row.contractNo + "-" + row.invoiceClaimNo;
-        // console.log(row.contractNo, row.invoiceClaimNo, claimNo, "claimNo");
-        // You can adjust metadata, filterQuery, selectedValues as needed
-        const metadata = {
-          //  DocID: row.docID,
-          DocID: generatedUID,
-          ClaimNo: row.contractNo,
-        };
-        // console.log(metadata, "metadata");
-        uploadedFileResult = await uploadFileWithMetadata(
-          file,
-          metadata,
-          CMSInvoiceDocuments
-        );
-
-        console.log(
-          "File uploaded to SharePoint:",
-          uploadedFileResult,
-          metadata
-        );
-
-        // After successful file upload, update the SharePoint list item
-
-        const updatedata = {
-          InvoiceStatus: "Generated",
-          InvoicNo: row.invoiceInvoicNo,
-          InvoiceDate: row.invoiceInvoiceDate,
-          InvoiceTaxAmount: Number(row.taxInvoiceAmount),
-          // InvoiceFileID: row.docID,
-          InvoiceFileID: generatedUID,
-          TotalPendingAmount: Number(row.taxInvoiceAmount),
-        };
-
-        // console.log("updatedata", updatedata);
-        try {
-          const updatedData = await updateDataToSharePoint(
-            InvoicelistName,
-            updatedata,
-            siteUrl,
-            row.invoiceInvoiceID
-          );
-          console.log("updatedata", updatedData);
-
-          if (props.refreshCmsDetails) {
-            await props.refreshCmsDetails();
-          }
-
-          await refreshInvoiceDocuments();
-          setIsLoading(false);
-          alert("Invoice Generated Successfully.");
-        } catch (error) {
-          setIsLoading(false);
-          console.error("Failed to update request:", error);
-          alert(
-            "Something went wrong while sending your edit request. Please try again."
-          );
-        }
-      } catch (error) {
-        setIsLoading(false);
-        console.error("File upload failed:", error);
-        alert("File upload failed. Please try again.");
-        return;
-      }
-    } else if (financeFilter === "Payment Pending") {
-      setIsLoading(true);
-      if (!row.paymentDate || !row.paymentValue) {
-        setIsLoading(false);
-        alert(
-          "Payment Date and Payment Value are mandatory. Please fill all required fields."
-        );
-        return;
-      }
-
-      // console.log("update payment button clicked", row);
-      // console.log(row.id, "row.id");
-      const CMSRequestItemID = row.id.split("-")[0];
-      const CMSInvoiceDetailIndex = row.id.split("-")[1];
-
-      let isInvoicePaymentReceived = "";
-      let PaymentAmount: number = Number(row.paymentValue);
-      let totalRecievedAmount =
-        row.invoiceDetails[CMSInvoiceDetailIndex].TotalPaymentRecieved || 0;
-      let TaxAmount = row.taxInvoiceAmount;
-      // let totalPendingAmount =
-      //   row.invoiceDetails[CMSInvoiceDetailIndex].TotalPendingAmount || 0;
-      // console.log(totalPendingAmount);
-      totalRecievedAmount = Number(totalRecievedAmount).toFixed(2);
-      PaymentAmount = Math.round(Number(PaymentAmount) * 100) / 100;
-      let InvoiceRecievedAmount =
-        Number(totalRecievedAmount) + Number(PaymentAmount);
-      // let InvoicePendingAmount = Number(TaxAmount) - Number(InvoiceRecievedAmount);
-      const InvoicePendingAmount = Number(
-        (Number(TaxAmount) - Number(InvoiceRecievedAmount)).toFixed(2)
-      );
-      if (
-        Number(InvoiceRecievedAmount.toFixed(2)) > Number(TaxAmount.toFixed(2))
-      ) {
-        setIsLoading(false);
-        alert(
-          "Payment Value cannot be greater than the pending amount for this invoice."
-        );
-        return;
-      }
-
-      if (InvoiceRecievedAmount === 0) {
-        setIsLoading(false);
-        alert("Payment Value cannot be 0.");
-        return;
-      }
-
-      if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
-        isInvoicePaymentReceived = "Yes";
-      }
-
-      const updatedata = {
-        PaymentDate: row.paymentDate,
-        CMSRequestItemID: row.invoiceInvoiceID,
-        CMSRequestID: CMSRequestItemID,
-        ClaimNo: row.ClaimNo,
-        InvoiceTaxAmount: row.taxInvoiceAmount,
-        PaymentAmount: Number(PaymentAmount),
-        PendingAmount: InvoicePendingAmount,
-        UID: row.UID,
-        Comment: row.comments,
-      };
-
-      const updateInvoicedata = {
-        TotalPaymentRecieved: InvoiceRecievedAmount,
-        TotalPendingAmount: InvoicePendingAmount,
-        PaymentStatus: isInvoicePaymentReceived,
-      };
-
-      const updateRequestmetadata = {
-        IsPaymentReceived: "Yes",
-        RunWF: "Yes",
-      };
-
-      try {
-        const updatedData = await saveDataToSharePoint(
-          PaymentHistoryListName,
-          updatedata,
-          siteUrl
-        );
-
-        const updatedInvoiceData = await updateDataToSharePoint(
-          InvoicelistName,
-          updateInvoicedata,
-          siteUrl,
-          row.invoiceInvoiceID
-        );
-
-        if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
-          // const filterQuery = `$select=*&$filter=TotalPendingAmount ge 1 and RequestID eq ${CMSRequestItemID}`;
-          const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
-          const data = await getSharePointData(
-            props,
-            InvoicelistName,
-            filterQuery
-          );
-
-          // console.log(data, "checkdata");
-
-          if (data.length == 0) {
-            // console.log(updateRequestmetadata);
-            const updateRequestdata = await updateDataToSharePoint(
-              MainList,
-              updateRequestmetadata,
-              siteUrl,
-              CMSRequestItemID
-            );
-            console.log(
-              "updatedata",
-              updatedData,
-              updatedInvoiceData,
-              updateRequestdata
-            );
-          }
-        }
-
-        // console.log("updatedata", updatedData, updatedInvoiceData);
-
-        if (props.refreshCmsDetails) {
-          await props.refreshCmsDetails();
-        }
-        setIsLoading(false);
-        alert("Payment Added Successfully.");
-      } catch (error) {
-        setIsLoading(false);
-        console.error("Failed to update request:", error);
-        alert(
-          "Something went wrong while sending your edit request. Please try again."
-        );
-      }
-    } else {
-    }
-  };
-
-  const pendingPaymentColumns: GridColDef[] = [
-    {
-      field: "customerName",
-      headerName: "Customer Name",
-      minWidth: 140,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "invoiceInvoicNo",
-      headerName: "Invoice No",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-
-    {
-      field: "taxInvoiceAmount",
-      headerName: "Tax Invoice Value",
-      minWidth: 150,
-      flex: 1,
-      editable: false,
-    },
-    // Editable fields
-
-    // {
-    //   field: "paymentDate",
-    //   headerName: "Payment Recieved Date",
-    //   minWidth: 200,
-    //   flex: 1,
-    //   renderCell: (params) => {
-    //     let inputValue = "";
-    //     if (params.row.paymentDate) {
-    //       const dateObj = new Date(params.row.paymentDate);
-    //       if (!isNaN(dateObj.getTime())) {
-
-    //         inputValue = dateObj.toISOString().split("T")[0];
-    //       }
-    //     }
-
-    //     return (
-    //       <div>
-    //         <TextField
-    //           size="small"
-    //           fullWidth
-    //           type="date"
-    //           sx={{ mt: 0.625 }} // 5px margin top
-    //           value={inputValue}
-    //           disabled={statusFilter !== "Pending"}
-    //           onChange={(e) => {
-    //             params.api.updateRows([
-    //               { ...params.row, paymentDate: e.target.value }
-    //             ]);
-    //           }}
-    //           InputLabelProps={{ shrink: true }}
-    //         />
-
-    //       </div>
-    //     );
-    //   },
-    // },
-    {
-      field: "paymentDate",
-      headerName: "Payment Recieved Date",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => {
-        // Use moment for value, fallback to null
-        const value = params.row.paymentDate
-          ? moment(params.row.paymentDate, "YYYY-MM-DD", true).isValid()
-            ? moment(params.row.paymentDate)
-            : null
-          : null;
-
-        return (
-          <DatePicker
-            format="DD-MM-YYYY"
-            value={value}
-            style={{ width: "100%", marginTop: 5 }}
-            disabled={statusFilter !== "Pending"}
-            onChange={(date) => {
-              params.api.updateRows([
-                {
-                  ...params.row,
-                  paymentDate: date ? date.format("YYYY-MM-DD") : "",
-                },
-              ]);
-            }}
-            allowClear
-            disabledDate={(current) =>
-              current && current > moment().endOf("day")
-            }
-          />
-        );
-      },
-    },
-
-    {
-      field: "paymentValue",
-      headerName: "Amount Recieved",
-      type: "number",
-      minWidth: 170,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          type="number"
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.paymentValue || ""}
-          disabled={statusFilter !== "Pending"}
-          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "-" || e.key === "+") {
-              e.preventDefault(); // block minus, plus
-            }
-          }}
-          onChange={(e) => {
-            const value = e.target.value;
-
-            if (value === "") {
-              params.api.updateRows([{ ...params.row, paymentValue: "" }]);
-              return;
-            }
-
-            if (parseFloat(value) > 0) {
-              params.api.updateRows([{ ...params.row, paymentValue: value }]);
-            } else {
-              alert("Payment Value must be greater than 0.");
-            }
-          }}
-        />
-      ),
-    },
-    {
-      field: "InvoiceTotalPaymentRecieved",
-      headerName: "Total Recieved Payment Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-    {
-      field: "invoiceTotalPendingAmount",
-      headerName: "Total Pending Payment Amount",
-      type: "number",
-      minWidth: 130,
-      flex: 1,
-      editable: false,
-    },
-
-    {
-      field: "comments",
-      headerName: "Comments",
-      minWidth: 200,
-      flex: 1,
-      renderCell: (params) => (
-        <TextField
-          size="small"
-          fullWidth
-          sx={{ mt: 0.625 }} // 5px margin top
-          value={params.row.comments || ""}
-          disabled={statusFilter !== "Pending"}
-          onChange={(e) => {
-            params.api.updateRows([
-              { ...params.row, comments: e.target.value },
-            ]);
-          }}
-        />
-      ),
-    },
-    {
-      field: "contractNo",
-      headerName: "Contract ID (Request ID)",
-      minWidth: 130,
-      flex: 1,
-      renderCell: (params: any) => {
-        return (
-          <Stack direction="row" spacing={1}>
-            <a
-              href="#"
-              style={{
-                cursor: "pointer",
-                color: "#1976d2",
-                textDecoration: "underline",
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                handleShoworm(params.row.id, params.row);
-              }}
-            >
-              {params.row.contractNo}
-            </a>
-          </Stack>
-        );
-      },
-      editable: false,
-      // hideable: true,
-    },
-    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
-    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
-    {
-      field: "action",
-      headerName: " ",
-
-      minWidth: 280,
-      flex: 1,
-      renderCell: (params) =>
-        statusFilter === "Done" ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-                marginRight: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
-            {/* <Button
-              variant="outlined"
-              style={{ color: "#1976d2", borderColor: "#1976d2" }}
-              onClick={() => handleHistoryClick(params.row)}
-            >
-              <FontAwesomeIcon
-                            icon={faClockRotateLeft}
-                            title="Payment History"
-                          />
-            </Button> */}
-            {params.row.InvoiceTotalPaymentRecieved > 0 && (
-              <Button
-                variant="outlined"
-                style={{
-                  color: "#1976d2",
-                  borderColor: "#1976d2",
-                  marginLeft: "10px",
-                }}
-                onClick={() => handleHistoryClick(params.row)}
-              >
-                <FontAwesomeIcon
-                  icon={faClockRotateLeft}
-                  title="Payment History"
-                />
-              </Button>
-            )}
-          </Stack>
-        ) : editableRowId === params.row.id ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-            {/* <Button
-              variant="outlined"
-              style={{ color: "#1976d2", borderColor: "#1976d2" }}
-            >
-              <FontAwesomeIcon
-                            icon={faClockRotateLeft}
-                            title="Payment History"
-                          />
-            </Button> */}
-            {params.row.InvoiceTotalPaymentRecieved > 0 && (
-              <Button
-                variant="outlined"
-                style={{
-                  color: "#1976d2",
-                  borderColor: "#1976d2",
-                  marginLeft: "10px",
-                }}
-                onClick={() => handleHistoryClick(params.row)}
-              >
-                <FontAwesomeIcon
-                  icon={faClockRotateLeft}
-                  title="Payment History"
-                />
-              </Button>
-            )}
-          </Stack>
-        ) : (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              style={{
-                background: "green",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<SaveIcon />}
-              onClick={() => handleSaveClick(params.row)}
-            >
-              Save
-            </Button>
-            <Button
-              variant="contained"
-              // color="primary"
-              style={{
-                background: "#1565C0",
-                color: "white",
-                marginLeft: "10px",
-              }}
-              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
-              onClick={() => handleShoworm(params.row.id, params.row)}
-            >
-              <FontAwesomeIcon icon={faEye} title="Contract Details" />
-            </Button>
-          </Stack>
-        ),
-    },
-  ];
+  financeFilter === "Credit Note Pending"
+    ? statusFilter === "Pending"
+      ? invoiceRowsForCreditNote.filter(
+          (row) => row.prevInvoiceStatus === "Generated"
+        )
+      : invoiceRowsForCreditNote.filter(
+          (row) =>
+            row.invoiceStatus === "Credit Note Uploaded" &&
+            row.creditNoteStatus === "uploaded"
+        )
+    : [];
 
   const checkInvoiceNo = async (invoiceNo: string) => {
     const filterQuery = `$filter=InvoicNo eq '${invoiceNo}'&$orderby=Id desc&$Top=1`;
@@ -3481,6 +1686,358 @@ const Dashboard = (props: ICmsRebuildProps) => {
       headerName: "Contract No",
       minWidth: 130,
       // pinned: 'left',
+      flex: 1,
+      renderCell: (params: any) => {
+        return (
+          <Stack direction="row" spacing={1}>
+            <a
+              href="#"
+              style={{
+                cursor: "pointer",
+                color: "#1976d2",
+                textDecoration: "underline",
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleShoworm(params.row.id, params.row);
+              }}
+            >
+              {params.row.contractNo}
+            </a>
+          </Stack>
+        );
+      },
+      editable: false,
+    },
+    {
+      field: "customerName",
+      headerName: "Customer Name",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "customerEmail",
+      headerName: "Customer Email",
+      minWidth: 140,
+      flex: 1,
+      editable: false,
+    },
+    { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
+    { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
+    {
+      field: "poAttachment",
+      headerName: "PO Attachment",
+      minWidth: 160,
+      flex: 1,
+      editable: false,
+      renderCell: (params: any) => (
+        // params.row.poDocuments && params.row.poDocuments.length > 0 ? (
+        <>
+          <React.Fragment key={params.row.FileID}>
+            <a
+              href={params.row.poEncodedAbsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={params.row.poFileLeafRef}
+              style={{
+                color: "#1976d2",
+                textDecoration: "underline",
+                cursor: "pointer",
+              }}
+            >
+              {params.row.poFileLeafRef}
+            </a>
+            {/* {idx < params.row.poDocuments.length - 1 && ", "} */}
+          </React.Fragment>
+          {/* ) */}
+          {/* )} */}
+        </>
+      ),
+      // ) : (
+      //   <span style={{ color: "#888" }}>No PO File</span>
+      // ),
+    },
+
+    {
+      field: "invoiceComments",
+      headerName: "Invoice Description",
+      minWidth: 120,
+      flex: 1,
+      editable: false,
+    },
+    {
+      field: "invoiceAmount",
+      headerName: "Invoice Amount",
+      minWidth: 150,
+      flex: 1,
+      editable: false,
+      // valueFormatter: twoDecimalFormatter
+    },
+    // editable fields
+    // {
+    //   field: "invoiceAttachment",
+    //   headerName: "Invoice Attachment",
+    //   minWidth: 160,
+    //   flex: 1,
+    //   renderCell: (params) => (
+    //     <div style={{ width: "100%" }}>
+    //       <Button variant="outlined" component="label" size="small" fullWidth>
+    //         Upload
+    //         <input
+    //           type="file"
+    //           hidden
+    //           onChange={(e) => handleAttachmentChange(e, params.row)}
+    //         />
+    //       </Button>
+    //       {/* Show selected file name if exists */}
+    //       {rowFiles[params.row.id] && (
+    //         <Typography
+    //           variant="caption"
+    //           sx={{ display: "block", mt: 1, wordBreak: "break-all" }}
+    //         >
+    //           {rowFiles[params.row.id].name}
+    //         </Typography>
+    //       )}
+    //       {/* Use fileVersion to force re-render */}
+    //       <span style={{ display: "none" }}>{params.row.fileVersion}</span>
+    //     </div>
+    //   ),
+    // },
+    {
+      field: "invoiceAttachment",
+      headerName: "Invoice Attachment",
+      minWidth: 350,
+      flex: 1,
+      renderCell: (params) => (
+        <div style={{ width: "100%" }}>
+          <input
+            type="file"
+            // style={{ width: "100%" }}
+            className="form-control"
+            style={{
+              marginTop: "5px",
+            }}
+            onChange={(e) => handleAttachmentChange(e, params.row)}
+          />
+          <Typography
+            variant="caption"
+            sx={{ display: "none", mt: 1, wordBreak: "break-all" }}
+          >
+            {rowFiles[params.row.id]?.name || ""}
+          </Typography>
+          {/* Use fileVersion to force re-render */}
+          <span style={{ display: "none" }}>{params.row.fileVersion}</span>
+        </div>
+      ),
+    },
+
+    {
+      field: "invoiceInvoicNo",
+      headerName: "Invoice No",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.invoiceInvoicNo || ""}
+          disabled={!rowFiles[params.row.id]}
+          onChange={(e) => {
+            params.api.updateRows([
+              { ...params.row, invoiceInvoicNo: e.target.value },
+            ]);
+          }}
+        />
+      ),
+    },
+    // {
+    //   field: "invoiceInvoiceDate",
+    //   headerName: "Invoice Date",
+    //   minWidth: 200,
+    //   flex: 1,
+    //   renderCell: (params) => {
+
+    //     let inputValue = "";
+    //     if (params.row.invoiceInvoiceDate) {
+    //       const dateObj = new Date(params.row.invoiceInvoiceDate);
+    //       if (!isNaN(dateObj.getTime())) {
+    //         inputValue = dateObj.toISOString().split("T")[0];
+    //       }
+    //     }
+    //     return (
+    //       <div>
+    //         <TextField
+    //           size="small"
+    //           fullWidth
+    //           type="date"
+    //           sx={{ mt: 0.625 }} // 5px margin top
+    //           value={inputValue}
+    //           disabled={!rowFiles[params.row.id]}
+    //           onChange={(e) => {
+    //             params.api.updateRows([
+    //               { ...params.row, invoiceInvoiceDate: e.target.value }
+    //             ]);
+    //           }}
+    //           InputLabelProps={{ shrink: true }}
+    //         />
+
+    //       </div>
+    //     );
+    //   },
+    // },
+    {
+      field: "invoiceInvoiceDate",
+      headerName: "Invoice Date",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => {
+        // Use moment for value, fallback to null
+        const value = params.row.invoiceInvoiceDate
+          ? moment(params.row.invoiceInvoiceDate, "YYYY-MM-DD", true).isValid()
+            ? moment(params.row.invoiceInvoiceDate)
+            : null
+          : null;
+
+        return (
+          <DatePicker
+            format="DD-MM-YYYY"
+            value={value}
+            style={{ width: "100%", marginTop: 5 }}
+            disabled={!rowFiles[params.row.id]}
+            onChange={(date) => {
+              params.api.updateRows([
+                {
+                  ...params.row,
+                  invoiceInvoiceDate: date ? date.format("YYYY-MM-DD") : "",
+                },
+              ]);
+            }}
+            allowClear
+            // Optionally restrict future dates:
+            disabledDate={(current) =>
+              current && current > moment().endOf("day")
+            }
+          />
+        );
+      },
+    },
+
+    {
+      field: "taxInvoiceAmount",
+      headerName: "Tax Invoice Value",
+      minWidth: 200,
+      flex: 1,
+      renderCell: (params) => (
+        <TextField
+          size="small"
+          fullWidth
+          type="number"
+          sx={{ mt: 0.625 }} // 5px margin top
+          value={params.row.taxInvoiceAmount || ""}
+          disabled={!rowFiles[params.row.id]}
+          onChange={(e) => {
+            const value = e.target.value;
+
+            if (parseFloat(value) > 0) {
+              params.api.updateRows([
+                { ...params.row, taxInvoiceAmount: value },
+              ]);
+            } else {
+              alert("Invoice Tax Amount must be greater than 0.");
+            }
+          }}
+        />
+      ),
+    },
+    {
+      field: "action",
+      headerName: "Action",
+      minWidth: 280,
+      flex: 1,
+      renderCell: (params) =>
+        statusFilter === "Done" ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              // color="primary"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+                marginRight: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
+          </Stack>
+        ) : editableRowId === params.row.id ? (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              // color="primary"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              // color="primary"
+              style={{
+                background: "green",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<SaveIcon />}
+              onClick={() => handleSaveClick(params.row)}
+            >
+              Save
+            </Button>
+
+            <Button
+              variant="contained"
+              // color="primary"
+              style={{
+                background: "#1565C0",
+                color: "white",
+                marginLeft: "10px",
+              }}
+              // startIcon={<FontAwesomeIcon icon={faDiamondTurnRight} />}
+              onClick={() => handleShoworm(params.row.id, params.row)}
+            >
+              <FontAwesomeIcon icon={faEye} title="Contract Details" />
+            </Button>
+          </Stack>
+        ),
+    },
+  ];
+
+  const invoiceColumns: GridColDef[] = [
+    {
+      field: "id",
+      headerName: "ID",
+      minWidth: 90,
+      flex: 1,
+      editable: false,
+      // hideable: true,
+    },
+
+    {
+      field: "contractNo",
+      headerName: "Contract No",
+      minWidth: 130,
       flex: 1,
       renderCell: (params: any) => {
         return (
@@ -3688,63 +2245,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
     },
   ];
 
-  // const rows: RowData[] = props.cmsDetails.map((item) => ({
-  //   id: item.Id,
-  //   contractNo: item.RequestID,
-  //   customerName: item.CustomerName,
-  //   productType: item.ProductType,
-  //   isPaymentReceived: item.IsPaymentReceived,
-  //   poNo: item.PoNo,
-  //   poAmount: item.POAmount,
-  //   poDate: item?.PoDate
-  //     ? new Date(item.PoDate).toLocaleDateString("en-GB")
-  //     : "",
-  //   workTitle: item.WorkTitle,
-  //   // upcomingInvoice: item.UpComingInvoiceDate,
-  //   upcomingInvoice: item?.UpComingInvoiceDate
-  //     ? new Date(item.UpComingInvoiceDate).toLocaleDateString("en-GB")
-  //     : "",
-  //   taxInvoiceAmount: item.NewInvoiceTaxAmount,
-  //   totalPaymentRecievedAmt: item.NewPaymentTotal,
-  //   totalPendingAmt: item.NewPendingTotal,
-  //   employeeName: item.EmployeeName,
-  //   employeeEmail: item.EmployeeEmail,
-  //   accountManger: item.AccountManger,
-  //   customerEmail: item.CustomerEmail,
-  //   delegateEmployeeEmail: item.DelegateEmployeeEmail,
-  //   companyName: item.CompanyName,
-  //   govtContract: item.GovtContract,
-  //   bgRequired: item.BGRequired,
-  //   location: item.Location,
-  //   customerLocation: item.CustomerLocation,
-  //   workDetail: item.WorkDetails,
-  //   renewalRequired: item.RenewalRequired,
-  //   contractType: item.ContractType,
-  //   // gstNo: item.GSTNo,
-  //   bgDate: item.BGDate,
-  //   accountMangerId: item.AccountMangerId,
-  //   accountMangerEmail: item.AccountManger?.EMail || "",
-  //   accountMangerTitle: item.AccountManger?.Title || "",
-  //   projectMangerEmail: item.ProjectManager?.EMail || "",
-  //   projectMangerTitle: item.ProjectManager?.Title || "",
-  //   projectLeadEmail: item.ProjectLead?.EMail || "",
-  //   projectLeadTitle: item.ProjectLead?.Title || "",
-
-  //   docID: item.UID,
-
-  //   invoiceDetails: item.invoiceDetails,
-  //   currency: item.Currency,
-  //   approverStatus: item.ApproverStatus,
-
-  //   startDate: item.StartDateResource,
-  //   endDate: item.EndDateResource,
-  //   invoiceCriteria: item.InvoiceCriteria,
-
-  //   TotalPaymentRecieved: Number(item.TotalPaymentRecieved ?? 0),
-  //   TotalPendingAmount: Number(item.TotalPendingAmount ?? 0),
-  //   InvoiceTaxAmount: Number(item.InvoiceTaxAmount ?? 0),
-  // }));
-
   const rows: RowData[] = props.cmsDetails
     .filter((item) => item.CloseStatus !== "Deleted") // Exclude rows where CloseStatus is "Deleted"
     .map((item) => ({
@@ -3793,7 +2293,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
       projectMangerTitle: item.ProjectManager?.Title || "",
       projectLeadEmail: item.ProjectLead?.EMail || "",
       projectLeadTitle: item.ProjectLead?.Title || "",
-
       docID: item.UID,
       invoiceDetails: item.invoiceDetails,
       currency: item.Currency,
@@ -3806,6 +2305,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
       approverStatus: item.ApproverStatus,
       approverComment: item.ApproverComment,
       selectedSections: item.SelectedSections,
+      isCreditNoteUploaded: item.IsCreditNoteUploaded,
     }));
 
   const requestorRows: RowData[] = rows.filter(
@@ -3827,6 +2327,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
             TotalPendingAmount: any;
             InvoiceStatus: any;
             PrevInvoiceStatus: any;
+            CreditNoteStatus: any;
             InvoiceAmount: any;
             InvoiceFileID: any;
             ClaimNo: any;
@@ -3893,9 +2394,11 @@ const Dashboard = (props: ICmsRebuildProps) => {
             invoiceDetails: item.invoiceDetails,
             currency: item.Currency,
             approverStatus: item.ApproverStatus,
+            isCreditNoteUploaded: item.IsCreditNoteUploaded,
             isPaymentReceived: item.IsPaymentReceived,
             invoiceStatus: detail.InvoiceStatus,
             prevInvoiceStatus: detail.PrevInvoiceStatus,
+            creditNoteStatus: detail.CreditNoteStatus,
             invoiceAmount: detail.InvoiceAmount,
             paymentStatus: detail.PaymentStatus,
             invoiceComments: detail.Comments,
@@ -3905,10 +2408,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
             invoiceInvoiceDate: detail.InvoiceDate
               ? new Date(detail.InvoiceDate)
               : new Date(),
-            // ...existing code...
-            // invoiceInvoiceDate: detail?.InvoiceDate
-            //   ? new Date(detail?.InvoiceDate)
-            //   : null,
             invoicePaymentDate: detail.PaymentDate,
             invoiceInvoiceID: detail.ID,
             invoiceInvoiceRequestID: detail.RequestID,
@@ -4109,230 +2608,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
             // boxShadow: 3,
           }}
         >
-          {/* {showSpecialButtons && (
-            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-             
-              <Button
-                variant={activePage === "finance" ? "contained" : "outlined"}
-                color="secondary"
-                onClick={handleFinancePageClick}
-                sx={{
-                  fontWeight: activePage === "finance" ? "bold" : "normal",
-                  backgroundColor: activePage === "finance" ? "#1976d2" : undefined,
-                  color: activePage === "finance" ? "white" : "#1976d2",
-                  borderColor: "#1976d2",
-                }}
-              >
-                Finance Page
-              </Button>
-              <Button
-                variant={activePage === "admin" ? "contained" : "outlined"}
-                color="primary"
-                onClick={handleAdminPageClick}
-                sx={{
-                  fontWeight: activePage === "admin" ? "bold" : "normal",
-                  backgroundColor: activePage === "admin" ? "#1976d2" : undefined,
-                  color: activePage === "admin" ? "white" : "#1976d2",
-                  borderColor: "#1976d2",
-                }}
-              >
-                Admin Page
-              </Button>
-            </Stack>
-          )} */}
-
-          {/* <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-  {showFinanceButton && (
-    <Button
-      variant={activePage === "finance" ? "contained" : "outlined"}
-      color="secondary"
-      onClick={handleFinancePageClick}
-      sx={{
-        fontWeight: activePage === "finance" ? "bold" : "normal",
-        backgroundColor: activePage === "finance" ? "#1976d2" : undefined,
-        color: activePage === "finance" ? "white" : "#1976d2",
-        borderColor: "#1976d2",
-      }}
-    >
-      Finance Page
-    </Button>
-  )}
-  {showAdminButton && (
-    <Button
-      variant={activePage === "admin" ? "contained" : "outlined"}
-      color="primary"
-      onClick={handleAdminPageClick}
-      sx={{
-        fontWeight: activePage === "admin" ? "bold" : "normal",
-        backgroundColor: activePage === "admin" ? "#1976d2" : undefined,
-        color: activePage === "admin" ? "white" : "#1976d2",
-        borderColor: "#1976d2",
-      }}
-    >
-      Admin Page
-    </Button>
-  )}
-  {showRequesterButton && (
-    <Button
-      variant={activePage === "requester" ? "contained" : "outlined"}
-      color="success"
-      onClick={handleRequeterPageClick}
-      sx={{
-        fontWeight: activePage === "requester" ? "bold" : "normal",
-        backgroundColor: activePage === "requester" ? "#388e3c" : undefined,
-        color: activePage === "requester" ? "white" : "#388e3c",
-        borderColor: "#388e3c",
-      }}
-    >
-      Requester Page
-    </Button>
-  )}
-</Stack> */}
-
-          {/* Dropdown for CMSFinanceGroup */}
-          {/* {userGroups.includes("CMSAccountGroup") && (
-            <Box>
-              
-                <FormControl
-                  sx={{
-                    mb: 2,
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    //justifyContent: "space-between", // Ensure filters are in a single row
-                    gap: "20px", // Add spacing between elements
-                  }}
-                >
-                  <label
-                    htmlFor="finance-filter"
-                    style={{ marginRight: "10px" }}
-                  >
-                    Form
-                  </label>
-                  <select
-                    id="finance-filter"
-                    value={financeFilter}
-                    onChange={(e) => setFinanceFilter(e.target.value)}
-                    style={{
-                      minWidth: "200px",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc",
-                    }}
-                  >
-                    <option value="Invoice Pending">Invoice </option>
-                    <option value="Payment Pending">Payment </option>
-                  </select>
-
-                  <FormLabel
-                    component="legend"
-                    style={{ marginRight: "10px", maxWidth: "90px" }}
-                  >
-                    Status
-                  </FormLabel>
-                  <RadioGroup
-                    row
-                    aria-label="status-filter"
-                    name="status-filter"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <FormControlLabel
-                      value="Pending"
-                      // control={<Radio />}
-                      // label="Pending"
-                      control={
-                        <Radio
-                          sx={{
-                            color: "#FFC107",
-                            "&.Mui-checked": { color: "#FFC107" },
-                          }}
-                        />
-                      }
-                      label={
-                        <span style={{ color: "#FFC107", fontWeight: 500 }}>
-                          Pending
-                        </span>
-                      }
-                    />
-                    <FormControlLabel
-                      value="Done"
-                      // control={<Radio />}
-                      // label="Done"
-                      control={
-                        <Radio
-                          sx={{
-                            color: "green",
-                            "&.Mui-checked": { color: "green" },
-                          }}
-                        />
-                      }
-                      label={
-                        <span style={{ color: "green", fontWeight: 500 }}>
-                          Done
-                        </span>
-                      }
-                    />
-                  </RadioGroup>
-                </FormControl>
-              
-              {userGroups.includes("CMSAccountGroup") &&
-                financeFilter === "Payment Pending" &&
-                statusFilter === "Pending" && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      // border: "5px solid #ccc",
-                      borderRadius: "4px",
-                      justifyContent: "flex-end",
-                      mt: 2,
-                      pr: 2,
-                    }}
-                  >
-                    {(() => {
-                      // Get visible rows
-                      const visibleRows = filterRowsBySearch(
-                        filteredFinanceRows,
-                        searchText
-                      );
-                      // Calculate totals
-                      const totalReceived = visibleRows.reduce(
-                        (sum, row) =>
-                          sum +
-                          (parseFloat(row.InvoiceTotalPaymentRecieved) || 0),
-                        0
-                      );
-                      const totalPending = visibleRows.reduce(
-                        (sum, row) =>
-                          sum +
-                          (parseFloat(row.invoiceTotalPendingAmount) || 0),
-                        0
-                      );
-                      return (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            gap: 4,
-                            fontWeight: "bold",
-                            fontSize: 16,
-                          }}
-                        >
-                          <span>
-                            Total Received Payment Amount:{" "}
-                            {totalReceived.toLocaleString()}
-                          </span>
-                          <span>
-                            Total Pending Payment Amount:{" "}
-                            {totalPending.toLocaleString()}
-                          </span>
-                        </Box>
-                      );
-                    })()}
-                  </Box>
-                )}
-            </Box>
-          ) */}
-
           {userGroups.includes("CMSAccountGroup") && (
             <Box
               sx={{
@@ -4582,12 +2857,18 @@ const Dashboard = (props: ICmsRebuildProps) => {
           </Box>
           <Box sx={{ height: "65vh", width: "100%" }}>
             <DataGrid
-              rows={filterRowsBySearch(
-                isGeneralUser ? filteredRows : filteredFinanceRows,
-                searchText
-              )}
+              rows={
+                financeFilter === "Credit Note Pending"
+                  ? creditNotePendingRows
+                  : filterRowsBySearch(
+                      isGeneralUser ? filteredRows : filteredFinanceRows,
+                      searchText
+                    )
+              }
               columns={
-                userGroups.includes("CMSAccountGroup")
+                financeFilter === "Credit Note Pending"
+                  ? creditNotePendingColumns
+                  : userGroups.includes("CMSAccountGroup")
                   ? financeFilter === "Invoice Pending"
                     ? statusFilter === "Pending"
                       ? pendingInvoiceColumns
@@ -4696,4 +2977,89 @@ const Dashboard = (props: ICmsRebuildProps) => {
                     <th>Payment Date</th>
                     <th>Payment Amount</th>
                     <th>Pending Amount</th>
-                    <
+                    <th>Remarks</th>
+                    <th>Financer Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoiceHistoryData.map((item, index) => (
+                    <tr key={item.Id}>
+                      <td>{index + 1}</td>
+                      <td>{item.InvoiceTaxAmount}</td>
+                      <td>
+                        {item.PaymentDate
+                          ? moment(item.PaymentDate).format("DD-MM-YYYY")
+                          : ""}
+                      </td>
+                      <td>{item.PaymentAmount}</td>
+                      <td>{item.PendingAmount}</td>
+                      <td>{item.Comment}</td>
+                      <td>{item.FinancerName || ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center text-danger fw-bold">
+              No payment received on this invoice.
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <BootstrapButton
+            variant="secondary"
+            onClick={() => setShowHistoryModal(false)}
+          >
+            Close
+          </BootstrapButton>
+        </Modal.Footer>
+      </Modal>
+    </Box>
+  );
+};
+
+export default Dashboard;
+
+// Fetch all items from ContractDocument library with selected fields
+const fetchAllContractDocuments = async (siteUrl: string) => {
+  const selectFields =
+    "Id, FileLeafRef, FileID, FileRef, AttachmentType, EncodedAbsUrl";
+  const libraryName = "ContractDocument";
+  const filterQuery = `$filter=AttachmentType eq 'Po'&$top=5000`;
+  // const filterQuery = "";
+
+  try {
+    const response = await getDocumentLibraryDataWithSelect(
+      libraryName,
+      filterQuery,
+      selectFields,
+      siteUrl
+    );
+    console.log("All ContractDocument items:", response);
+    return response;
+  } catch (error) {
+    console.error("Error fetching ContractDocument items:", error);
+    return [];
+  }
+};
+
+const fetchAllInvoiceDocuments = async (siteUrl: string) => {
+  const selectFields = "Id, FileLeafRef, FileRef,EncodedAbsUrl,DocID";
+  const libraryName = "InvoiceDocument";
+  const filterQuery = `$top=5000`;
+
+  try {
+    const response = await getDocumentLibraryDataWithSelect(
+      libraryName,
+      filterQuery,
+      selectFields,
+      siteUrl
+    );
+    console.log("All INVOICE items:", response);
+    return response;
+  } catch (error) {
+    console.error("Error fetching invvoice Document items:", error);
+    return [];
+  }
+};

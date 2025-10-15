@@ -157,6 +157,7 @@ export default class CmsRebuild extends React.Component<
         "editReason",
         "PoNo",
         "PaymentMode",
+        "IsCreditNoteUploaded"
         // "Modified",
         // "Created",
         // "Author",
@@ -192,7 +193,8 @@ export default class CmsRebuild extends React.Component<
         "RunWF",
         "StartDateResource",
         "EndDateResource",
-
+        "CreditNoteStatus",
+        
         // "Modified",
         // "Created",
         // "Author",
