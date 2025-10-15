@@ -995,22 +995,102 @@ const RequestForm = (props: ICmsRebuildProps) => {
     value: string | number
   ) => {
     setInvoiceRows((prevRows) => {
-      const updatedRows = [...prevRows];
+      let updatedRows = [...prevRows];
       updatedRows[index] = { ...updatedRows[index], [field]: value };
 
       // Update RemainingPoAmount dynamically
       if (field === "InvoiceAmount") {
-        let remainingPoAmount = Number(formData.poAmount) || 0;
+        const poAmt = Number(formData.poAmount) || 0;
 
-        updatedRows.forEach((row, idx) => {
+        // Recalculate RemainingPoAmount for every row
+        let runningRemaining = poAmt;
+        for (let idx = 0; idx < updatedRows.length; idx++) {
           if (idx === 0) {
-            row.RemainingPoAmount = remainingPoAmount.toFixed(2); // First row shows total PO amount
+            updatedRows[idx].RemainingPoAmount = runningRemaining.toFixed(2);
           } else {
-            remainingPoAmount -=
-              Number(updatedRows[idx - 1].InvoiceAmount) || 0;
-            row.RemainingPoAmount = remainingPoAmount.toFixed(2);
+            const prevAmount = Number(updatedRows[idx - 1].InvoiceAmount) || 0;
+            runningRemaining = runningRemaining - prevAmount;
+            updatedRows[idx].RemainingPoAmount = runningRemaining.toFixed(2);
           }
-        });
+        }
+
+        // Auto-add/remove rows based on remaining PO amount
+        const totalInvoiceAmount = updatedRows.reduce(
+          (sum, r) => sum + (Number(r.InvoiceAmount) || 0),
+          0
+        );
+        const remainingAfter = +(poAmt - totalInvoiceAmount).toFixed(2);
+        const lastRow = updatedRows[updatedRows.length - 1];
+        const lastRowHasValue = lastRow && String(lastRow.InvoiceAmount).trim() !== "" && Number(lastRow.InvoiceAmount) !== 0;
+
+        if (poAmt > 0 && remainingAfter > 0 && lastRowHasValue) {
+          // append new blank row for continued entry
+          const maxId = updatedRows.length > 0 ? Math.max(...updatedRows.map((r) => r.id)) : 0;
+          updatedRows.push({
+            id: maxId + 1,
+            InvoiceDescription: "",
+            RemainingPoAmount: remainingAfter.toFixed(2),
+            InvoiceAmount: "",
+            InvoiceDueDate: "",
+            InvoiceProceedDate: "",
+            InvoiceComment: "",
+            showProceed: false,
+            InvoiceStatus: "",
+            userInGroup: false,
+            employeeEmail: "",
+            itemID: null as number | null,
+            InvoiceNo: "",
+            InvoiceDate: "",
+            InvoiceTaxAmount: "",
+            ClaimNo: "",
+            RequestID: "",
+            DocId: "",
+            PendingAmount: "",
+            InvoiceFileID: "",
+          });
+        }
+
+        if (poAmt > 0 && remainingAfter === 0) {
+          // Remove trailing empty rows (those after the last filled InvoiceAmount)
+          let lastFilledIndex = -1;
+          for (let i = updatedRows.length - 1; i >= 0; i--) {
+            const amt = String(updatedRows[i].InvoiceAmount).trim();
+            if (amt !== "" && Number(updatedRows[i].InvoiceAmount) !== 0) {
+              lastFilledIndex = i;
+              break;
+            }
+          }
+          if (lastFilledIndex === -1) {
+            // nothing filled; keep single empty row and show full PO amount as remaining
+            updatedRows = [
+              {
+                id: updatedRows[0]?.id || 1,
+                InvoiceDescription: "",
+                RemainingPoAmount: poAmt.toFixed(2),
+                InvoiceAmount: "",
+                InvoiceDueDate: "",
+                InvoiceProceedDate: "",
+                InvoiceComment: "",
+                showProceed: false,
+                InvoiceStatus: "",
+                userInGroup: false,
+                employeeEmail: "",
+                itemID: null as number | null,
+                InvoiceNo: "",
+                InvoiceDate: "",
+                InvoiceTaxAmount: "",
+                ClaimNo: "",
+                RequestID: "",
+                DocId: "",
+                PendingAmount: "",
+                InvoiceFileID: "",
+              },
+            ];
+          } else {
+            // keep rows up to last filled; their RemainingPoAmount values were already calculated above
+            updatedRows = updatedRows.slice(0, lastFilledIndex + 1);
+          }
+        }
       }
 
       return updatedRows;

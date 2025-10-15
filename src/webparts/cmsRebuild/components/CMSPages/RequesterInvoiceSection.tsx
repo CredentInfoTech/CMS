@@ -20,7 +20,7 @@ import {
   handleDownload,
 } from "../services/SharePointService";
 import {
-  faPlus,
+  // faPlus,
   faTrash,
   faClockRotateLeft,
   // faAngleUp,
@@ -296,9 +296,12 @@ export default function RequesterInvoiceSection({
       onProceedButtonCountChange(proceedButtonCount);
     }
   }, [proceedButtonCount, onProceedButtonCountChange]);
+
+  // (row add/remove handled in parent `RequestForm`)  
   return (
     <div className="mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-3 sectionheader">
+      <div className="d-flex justify-content-between align-items-center mb-3 sectionheader"
+      style={{padding:"7px 8px"}}>
         <div className="d-flex align-items-center justify-content-between">
           <h5
             className="fw-bold mt-2 me-2 headingColor"
@@ -326,7 +329,7 @@ export default function RequesterInvoiceSection({
         </div>
 
         {/* Hide Add Invoice Button if hideAddInvoiceButton is true */}
-        {!isEditMode && !hideAddInvoiceButton && (
+        {/* {!isEditMode && !hideAddInvoiceButton && (
           <button
             type="button"
             className="btn btn-success"
@@ -340,7 +343,7 @@ export default function RequesterInvoiceSection({
           >
             <FontAwesomeIcon icon={faPlus} className="me-2" /> Add Invoice
           </button>
-        )}
+        )} */}
       </div>
 
       {/* Responsive Table */}
