@@ -13,7 +13,6 @@ export interface ICmsRebuildProps {
   refreshCmsDetails: any;
   selectedMenu?: string;
   props?: any;
-   
   onExit?: () => void;
   onExitDashboard?: () => void;
 }

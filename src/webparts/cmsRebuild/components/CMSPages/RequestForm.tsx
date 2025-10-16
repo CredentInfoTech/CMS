@@ -83,14 +83,16 @@ const MilestoneBar: React.FC<{
 }> = ({ status, isCreditNoteUploaded }) => {
   const stages = ["Pending From Approver", "Hold", "Reminder", "Approved"];
 
-  // Add a special stage for Credit Note Uploaded
-  if (isCreditNoteUploaded === "No") {
+  // Only add "Credit Note Pending" if isCreditNoteUploaded === "No"
+  const hasCreditNotePending = isCreditNoteUploaded === "No";
+  if (hasCreditNotePending) {
     stages.push("Credit Note Pending");
   }
 
-  const currentIndex = stages.indexOf(
-    isCreditNoteUploaded === "No" ? "Credit Note Pending" : status || ""
-  );
+  // Determine current stage
+  const currentIndex = hasCreditNotePending
+    ? stages.indexOf("Credit Note Pending")
+    : stages.indexOf(status || "");
 
   return (
     <div
@@ -481,38 +483,31 @@ const RequestForm = (props: ICmsRebuildProps) => {
   //   setNavigateToDashboard(true);
   // };
 
-  // const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
-  //   try {
-  //     if (event && typeof event.preventDefault === "function") {
-  //       event.preventDefault();
-  //     }
+  const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
+  try {
+    if (event && typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
 
-  //     // Ensure props.refreshCmsDetails is a function before calling it
-  //     if (typeof props.refreshCmsDetails === "function") {
-  //       await props.refreshCmsDetails();
-  //     }
+    if (typeof props.refreshCmsDetails === "function") {
+      await props.refreshCmsDetails();
+    }
 
-  //     // Ensure props.onExit is a function before calling it
-  //     if (typeof props.onExit === "function") {
-  //       props.onExit();
-  //       // Exit early if onExit is provided
-  //       return;
-  //     }
+    if (typeof props.onExit === "function") {
+      props.onExit();
+      return;
+    }
 
-  //     // Set navigation state only once
-  //     setNavigateToDashboard(true);
-
-  //     // Use a single state update for dashboard navigation
-  //     setTimeout(() => {
-  //       setDashboardKey((prev) => prev + 1);
-  //     }, 100);
-  //   } catch (error) {
-  //     console.error("Error in handleExit:", error);
-  //   }
-  // };
+    console.error("onExit function is not provided.");
+  } catch (error) {
+    console.error("Error in handleExit:", error);
+  }
+};
 
   // New helper: refresh UI and optionally navigate to dashboard.
   // Use navigate=false for approve/hold/reject/remind flows to avoid redirect.
+ 
+ 
   const finalizeAction = async (navigate = false) => {
     try {
       if (typeof props.refreshCmsDetails === "function") {
@@ -536,7 +531,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       console.error("finalizeAction error:", err);
     }
   };
-
+/*
   // update handleExit to reuse helper (keeps previous behaviour)
   const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
     try {
@@ -547,7 +542,43 @@ const RequestForm = (props: ICmsRebuildProps) => {
     } catch (error) {
       console.error("Error in handleExit:", error);
     }
-  };
+  };*/
+/*
+  const finalizeAction = async (navigate = false) => {
+  try {
+    if (typeof props.refreshCmsDetails === "function") {
+      await props.refreshCmsDetails();
+    }
+
+    if (typeof props.onExit === "function") {
+      props.onExit();
+      return; // Exit early if onExit is provided
+    }
+
+    if (navigate) {
+      setNavigateToDashboard(true); // Trigger navigation
+    }
+  } catch (err) {
+    console.error("finalizeAction error:", err);
+  }
+};
+
+const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
+  try {
+    if (event && typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
+
+    // Perform cleanup before navigating
+    setIsLoading(false);
+    setSnackbar({ open: false, message: "", severity: "info" });
+
+    await finalizeAction(true);
+  } catch (error) {
+    console.error("Error in handleExit:", error);
+  }
+};*/
+
   const getTotalInvoiceAmount = (popupRows: any[], chargeRows: any[]) => {
     const totalInvoiceValue = parseFloat(getInvoiceTotal(popupRows));
     let supportCharges = 0;
@@ -3463,20 +3494,40 @@ const RequestForm = (props: ICmsRebuildProps) => {
     await handleDownload(e, encodedUrl, { context: props.context });
   };
 
+  // if (navigateToDashboard) {
+  //   return (
+  //     <Dashboard
+  //       key={dashboardKey}
+  //       description={props.description}
+  //       context={props.context}
+  //       siteUrl={props.siteUrl}
+  //       userGroups={props.userGroups}
+  //       cmsDetails={props.cmsDetails}
+  //       refreshCmsDetails={props.refreshCmsDetails}
+  //       selectedMenu="Home"
+  //     />
+  //   );
+  // }
+
   if (navigateToDashboard) {
-    return (
-      <Dashboard
-        key={dashboardKey}
-        description={props.description}
-        context={props.context}
-        siteUrl={props.siteUrl}
-        userGroups={props.userGroups}
-        cmsDetails={props.cmsDetails}
-        refreshCmsDetails={props.refreshCmsDetails}
-        selectedMenu="Home"
-      />
-    );
+  if (!props || !props.context || !props.cmsDetails) {
+    console.error("Missing required props for Dashboard component.");
+    return null; // Prevent rendering if props are invalid
   }
+
+  return (
+    <Dashboard
+      key={dashboardKey}
+      description={props.description}
+      context={props.context}
+      siteUrl={props.siteUrl}
+      userGroups={props.userGroups}
+      cmsDetails={props.cmsDetails}
+      refreshCmsDetails={props.refreshCmsDetails}
+      selectedMenu="Home"
+    />
+  );
+}
 
   // Only show Edit Request button if at least one row has showProceed true
   // const hasProceedButton = invoiceRows.some(row => row.showProceed);
@@ -3840,951 +3891,6 @@ const RequestForm = (props: ICmsRebuildProps) => {
       setIsLoading(false);
     }
   };
-  // ...existing code...
-  // ...existing code...
-  /*const handleUpdateEditRequest = async (
-    event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
-  ) => {
-    event?.preventDefault();
-    console.log("Update Edit Request clicked");
-    console.log(
-      "Deleted invoice item IDs (during edit):",
-      deletedInvoiceItemIDs
-    );
-
-    setIsLoading(true);
-    try {
-      const selectedSections =
-        props.selectedRow?.selectedSections?.toLowerCase();
-
-      if (!selectedSections) {
-        alert("No sections selected for update.");
-        return;
-      }
-
-      if (selectedSections.includes("client")) {
-        // Validate mandatory fields for "client"
-        if (!formData.customerEmail.trim()) {
-          showSnackbar("Customer Email is required.", "error");
-          return;
-        }
-        if (!formData.location.trim()) {
-          showSnackbar("Work Location is required.", "error");
-          return;
-        }
-        if (!formData.workTitle.trim()) {
-          showSnackbar("Work Title is required.", "error");
-          return;
-        }
-        if (!formData.workDetail.trim()) {
-          showSnackbar("Work Detail is required.", "error");
-          return;
-        }
-
-        const clientData = {
-          CustomerEmail: formData.customerEmail,
-          Location: formData.location,
-          WorkTitle: formData.workTitle,
-          WorkDetails: formData.workDetail,
-          ApproverStatus: "Completed",
-          RunWF: "Yes",
-          SelectedSections: "",
-          ApproverComment: "",
-        };
-
-        try {
-          await updateDataToSharePoint(
-            MainList,
-            clientData,
-            siteUrl,
-            props.selectedRow.id
-          );
-          console.log("Client section updated successfully.");
-        } catch (error) {
-          console.error("Error updating Client section:", error);
-          showSnackbar("Failed to update Client section.", "error");
-        }
-      }
-
-      // Check and update "po" section
-      if (selectedSections.includes("po")) {
-        // Validate mandatory fields for "po"
-        if (!formData.poNo.trim()) {
-          showSnackbar("PO No is required.", "error");
-          return;
-        }
-
-        // const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
-        //   formData.customerName
-        // )}' and PoNo eq '${encodeURIComponent(formData.poNo)}'`;
-        const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
-          formData.customerName
-        )}' and PoNo eq '${encodeURIComponent(formData.poNo)}' and ID ne ${
-          props.selectedRow.id
-        }`;
-        const poNoData = await getSharePointData(
-          { context },
-          MainList,
-          poNoFilterQuery
-        );
-
-        if (poNoData && poNoData.length > 0) {
-          showSnackbar(
-            "A record with this PO No already exists for the selected Customer Name.",
-            "error"
-          );
-
-          return;
-        }
-        if (!formData.poDate.trim()) {
-          showSnackbar("PO Date is required.", "error");
-          return;
-        }
-        if (!formData.poAmount || Number(formData.poAmount) <= 0) {
-          showSnackbar(
-            "PO Amount is required and must be greater than 0.",
-            "error"
-          );
-          return;
-        }
-
-        const poData = {
-          PoNo: formData.poNo,
-          PoDate: formData.poDate
-            ? moment(formData.poDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-            : null,
-          POAmount: Number(formData.poAmount),
-          ApproverStatus: "Completed",
-          RunWF: "Yes",
-          SelectedSections: "",
-          ApproverComment: "",
-        };
-
-        try {
-          await updateDataToSharePoint(
-            MainList,
-            poData,
-            siteUrl,
-            props.selectedRow.id
-          );
-          console.log("PO section updated successfully.");
-        } catch (error) {
-          console.error("Error updating PO section:", error);
-          showSnackbar("Failed to update PO section.", "error");
-        }
-      }
-
-      if (selectedSections.includes("invoice")) {
-        // Verify total of invoice rows equals PO Amount
-
-        const poAmt = Number(formData.poAmount) || 0;
-
-        // Only include rows that are NOT "Credit Note Uploaded"
-        const totalInvoiceAmount = invoiceRows.reduce((sum, r) => {
-          if (r.InvoiceStatus === "Credit Note Uploaded") return sum; // skip
-          const v = Number(r.InvoiceAmount) || 0;
-          return sum + v;
-        }, 0);
-
-        // Allow small float tolerance
-        const EPS = 0.01;
-        if (Math.abs(totalInvoiceAmount - poAmt) > EPS) {
-          showSnackbar(
-            `Total of invoice amounts (${totalInvoiceAmount.toFixed(
-              2
-            )}) must equal PO Amount (${poAmt.toFixed(2)}).`,
-            "error"
-          );
-          return;
-        }
-
-        for (const row of invoiceRows) {
-          // Validate row data before proceeding
-          if (
-            !row.InvoiceDescription ||
-            !row.InvoiceAmount ||
-            !row.InvoiceDueDate
-          ) {
-            console.warn("Skipping invalid row:", row);
-
-            // Show a snackbar message for invalid rows
-            showSnackbar(
-              "One or more invoice rows have missing required fields. Please complete all fields before proceeding.",
-              "warning"
-            );
-            return;
-          }
-
-          // Proceed with valid rows
-          const invoiceData: any = {
-            Comments: row.InvoiceDescription,
-            PoAmount: Number(row.RemainingPoAmount),
-            InvoiceAmount: Number(row.InvoiceAmount),
-            InvoiceDueDate: row.InvoiceDueDate
-              ? moment(row.InvoiceDueDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-              : null,
-            EmailBody: row.InvoiceComment,
-            RequestID: props.selectedRow.id,
-            ClaimNo: row.id,
-            PrevInvoiceStatus: "",
-          };
-
-          // Only set InvoiceStatus if applicable
-          if (
-            row.InvoiceStatus === "Pending Approval" &&
-            row.PrevInvoiceStatus !== "Generated"
-          ) {
-            invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
-          }
-          if (
-            row.InvoiceStatus === "Pending Approval" &&
-            row.PrevInvoiceStatus === "Generated"
-          ) {
-            invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
-            invoiceData.PrevInvoiceStatus = row.PrevInvoiceStatus;
-          }
-          if (
-            row.InvoiceStatus === "Credit Note Uploaded" &&
-            row.CreditNoteStatus === "Uploaded"
-          ) {
-            invoiceData.CreditNoteStatus = "Completed"; // update status
-            invoiceData.PrevInvoiceStatus = ""; // reset previous status
-          }
-          // ✅ Don’t change PrevInvoiceStatus for “Credit Note Uploaded”
-          else if (row.InvoiceStatus === "Credit Note Uploaded") {
-            invoiceData.PrevInvoiceStatus = row.PrevInvoiceStatus; // keep existing one
-          } else {
-            invoiceData.PrevInvoiceStatus = row.InvoiceStatus || "";
-          }
-
-          try {
-            if (row.itemID) {
-              // Update existing invoice
-              await updateDataToSharePoint(
-                InvoicelistName,
-                invoiceData,
-                siteUrl,
-                row.itemID
-              );
-              console.log(`Invoice ${row.itemID} updated successfully.`);
-            } else {
-              // Create new invoice
-              invoiceData.InvoiceStatus = "Started"; // Set InvoiceStatus to "Started"
-              await saveDataToSharePoint(InvoicelistName, invoiceData, siteUrl);
-              console.log("New invoice created successfully.");
-            }
-          } catch (error) {
-            console.error("Error updating/creating invoice:", error);
-            alert("Failed to update/create invoice.");
-          }
-        }
-
-        if (
-          Array.isArray(deletedInvoiceItemIDs) &&
-          deletedInvoiceItemIDs.length > 0
-        ) {
-          try {
-            for (const delId of deletedInvoiceItemIDs) {
-              const numericId = Number(delId);
-              if (!isNaN(numericId)) {
-                // delete list item using PnP
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await sp.web.lists
-                  .getByTitle(InvoicelistName)
-                  .items.getById(numericId)
-                  .delete();
-                console.log(`Deleted invoice item id ${numericId}`);
-              }
-            }
-            // clear deleted ids after successful deletion
-            setDeletedInvoiceItemIDs([]);
-            console.log(
-              `Deleted ${deletedInvoiceItemIDs.length} removed invoice item(s).`,
-              "success"
-            );
-          } catch (delError) {
-            console.error("Error deleting invoice items:", delError);
-            showSnackbar(
-              "Failed to delete one or more removed invoice items. See console for details.",
-              "error"
-            );
-          }
-        }
-        // Update the main list with the required data after processing all invoices
-        const mainListData = {
-          ApproverStatus: "Completed",
-          RunWF: "Yes",
-          SelectedSections: "",
-          ApproverComment: "",
-        };
-
-        try {
-          await updateDataToSharePoint(
-            MainList,
-            mainListData,
-            siteUrl,
-            props.selectedRow.id
-          );
-          console.log("Main list updated successfully.");
-        } catch (error) {
-          console.error("Error updating main list:", error);
-          showSnackbar(
-            "Failed to update the main list. Please try again.",
-            "error"
-          );
-        }
-
-        // Single success message after all updates
-        showSnackbar("Edit request updated successfully.", "success");
-
-         resetForm();
-      await props.refreshCmsDetails();
-      setIsLoading(false);
-      // alert("Form and data submitted successfully!");
-      if (props.onExit) {
-        props.onExit();
-        return;
-      }
-      setNavigateToDashboard(true);
-      setTimeout(() => {
-        setDashboardKey((prev) => prev + 1);
-        setNavigateToDashboard(true);
-      }, 100);
-
-        // try {
-        //   if (event && typeof event.preventDefault === "function") {
-        //     event.preventDefault();
-        //   }
-
-        //   // Ensure props.refreshCmsDetails is a function before calling it
-        //   if (typeof props.refreshCmsDetails === "function") {
-        //     await props.refreshCmsDetails();
-        //   }
-
-        //   // Ensure props.onExit is a function before calling it
-        //   if (typeof props.onExit === "function") {
-        //     props.onExit();
-        //     // Exit early if onExit is provided
-        //     return;
-        //   }
-        // } catch (error) {
-        //   console.error("Error in handleExit:", error);
-        // }
-      }
-    } catch (error) {
-      console.error("Error updating edit request:", error);
-      showSnackbar("Failed to update edit request. Please try again.", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };*/
-  /*
-  const handleUpdateEditRequest = async (
-  event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
-) => {
-  event?.preventDefault();
-  console.log("Update Edit Request clicked");
-  console.log("Deleted invoice item IDs (during edit):", deletedInvoiceItemIDs);
-
-  setIsLoading(true);
-  try {
-    const selectedSections = props.selectedRow?.selectedSections?.toLowerCase();
-
-    if (!selectedSections) {
-      alert("No sections selected for update.");
-      return;
-    }
-
-    // ========== CLIENT SECTION ==========
-    if (selectedSections.includes("client")) {
-      if (!formData.customerEmail.trim()) {
-        showSnackbar("Customer Email is required.", "error");
-        return;
-      }
-      if (!formData.location.trim()) {
-        showSnackbar("Work Location is required.", "error");
-        return;
-      }
-      if (!formData.workTitle.trim()) {
-        showSnackbar("Work Title is required.", "error");
-        return;
-      }
-      if (!formData.workDetail.trim()) {
-        showSnackbar("Work Detail is required.", "error");
-        return;
-      }
-
-      const clientData = {
-        CustomerEmail: formData.customerEmail,
-        Location: formData.location,
-        WorkTitle: formData.workTitle,
-        WorkDetails: formData.workDetail,
-        ApproverStatus: "Completed",
-        RunWF: "Yes",
-        SelectedSections: "",
-        ApproverComment: "",
-      };
-
-      try {
-        await updateDataToSharePoint(
-          MainList,
-          clientData,
-          siteUrl,
-          props.selectedRow.id
-        );
-        console.log("Client section updated successfully.");
-      } catch (error) {
-        console.error("Error updating Client section:", error);
-        showSnackbar("Failed to update Client section.", "error");
-      }
-    }
-
-    // ========== PO SECTION ==========
-    if (selectedSections.includes("po")) {
-      if (!formData.poNo.trim()) {
-        showSnackbar("PO No is required.", "error");
-        return;
-      }
-
-      const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
-        formData.customerName
-      )}' and PoNo eq '${encodeURIComponent(formData.poNo)}' and ID ne ${
-        props.selectedRow.id
-      }`;
-      const poNoData = await getSharePointData(
-        { context },
-        MainList,
-        poNoFilterQuery
-      );
-
-      if (poNoData && poNoData.length > 0) {
-        showSnackbar(
-          "A record with this PO No already exists for the selected Customer Name.",
-          "error"
-        );
-        return;
-      }
-      if (!formData.poDate.trim()) {
-        showSnackbar("PO Date is required.", "error");
-        return;
-      }
-      if (!formData.poAmount || Number(formData.poAmount) <= 0) {
-        showSnackbar(
-          "PO Amount is required and must be greater than 0.",
-          "error"
-        );
-        return;
-      }
-
-      const poData = {
-        PoNo: formData.poNo,
-        PoDate: formData.poDate
-          ? moment(formData.poDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-          : null,
-        POAmount: Number(formData.poAmount),
-        BGDate: formData.bgDate
-          ? moment(formData.bgDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-          : null,
-        ApproverStatus: "Completed",
-        RunWF: "Yes",
-        SelectedSections: "",
-        ApproverComment: "",
-      };
-
-      try {
-        await updateDataToSharePoint(
-          MainList,
-          poData,
-          siteUrl,
-          props.selectedRow.id
-        );
-        console.log("PO section updated successfully.");
-      } catch (error) {
-        console.error("Error updating PO section:", error);
-        showSnackbar("Failed to update PO section.", "error");
-      }
-    }
-
-    // ========== INVOICE SECTION ==========
-    if (selectedSections.includes("invoice")) {
-      const poAmt = Number(formData.poAmount) || 0;
-
-      // Skip credit note uploaded in total
-      const totalInvoiceAmount = invoiceRows.reduce((sum, r) => {
-        if (r.InvoiceStatus === "Credit Note Uploaded") return sum;
-        return sum + (Number(r.InvoiceAmount) || 0);
-      }, 0);
-
-      const EPS = 0.01;
-      if (Math.abs(totalInvoiceAmount - poAmt) > EPS) {
-        showSnackbar(
-          `Total of invoice amounts (${totalInvoiceAmount.toFixed(
-            2
-          )}) must equal PO Amount (${poAmt.toFixed(2)}).`,
-          "error"
-        );
-        return;
-      }
-
-      let isCreditNoteGenerated = false;
-
-      for (const row of invoiceRows) {
-        if (!row.InvoiceDescription || !row.InvoiceAmount || !row.InvoiceDueDate) {
-          showSnackbar(
-            "One or more invoice rows have missing required fields.",
-            "warning"
-          );
-          return;
-        }
-
-        const invoiceData: any = {
-          Comments: row.InvoiceDescription,
-          PoAmount: Number(row.RemainingPoAmount),
-          InvoiceAmount: Number(row.InvoiceAmount),
-          InvoiceDueDate: row.InvoiceDueDate
-            ? moment(row.InvoiceDueDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-            : null,
-          EmailBody: row.InvoiceComment,
-          RequestID: props.selectedRow.id,
-          ClaimNo: row.id,
-          PrevInvoiceStatus: "",
-        };
-
-        // Handle invoice status transitions
-        if (
-          row.InvoiceStatus === "Pending Approval" &&
-          row.PrevInvoiceStatus !== "Generated"
-        ) {
-          invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
-        }
-        if (
-          row.InvoiceStatus === "Pending Approval" &&
-          row.PrevInvoiceStatus === "Generated"
-        ) {
-          invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
-          invoiceData.PrevInvoiceStatus = row.PrevInvoiceStatus;
-        }
-
-        // ✅ If Credit Note Uploaded and status is Uploaded
-        if (
-          row.InvoiceStatus === "Credit Note Uploaded" &&
-          row.CreditNoteStatus === "Uploaded"
-        ) {
-          invoiceData.CreditNoteStatus = "Completed";
-          invoiceData.PrevInvoiceStatus = "";
-        }
-        // ✅ If CreditNoteStatus is Pending
-        else if (row.CreditNoteStatus === "Pending") {
-          invoiceData.CreditNoteStatus = "Pending";
-        }
-        // ✅ Otherwise keep previous
-        else {
-          invoiceData.PrevInvoiceStatus = row.InvoiceStatus || "";
-        }
-
-        // ✅ Track if PrevInvoiceStatus was "Generated"
-        if (row.PrevInvoiceStatus === "Generated" || row.CreditNoteStatus === "Uploaded") {
-          isCreditNoteGenerated = true;
-        }
-
-        try {
-          if (row.itemID) {
-            await updateDataToSharePoint(
-              InvoicelistName,
-              invoiceData,
-              siteUrl,
-              row.itemID
-            );
-            console.log(`Invoice ${row.itemID} updated successfully.`);
-          } else {
-            invoiceData.InvoiceStatus = "Started";
-            await saveDataToSharePoint(InvoicelistName, invoiceData, siteUrl);
-            console.log("New invoice created successfully.");
-          }
-        } catch (error) {
-          console.error("Error updating/creating invoice:", error);
-          alert("Failed to update/create invoice.");
-        }
-      }
-
-      // Delete removed invoices
-      if (Array.isArray(deletedInvoiceItemIDs) && deletedInvoiceItemIDs.length > 0) {
-        try {
-          for (const delId of deletedInvoiceItemIDs) {
-            const numericId = Number(delId);
-            if (!isNaN(numericId)) {
-              await sp.web.lists
-                .getByTitle(InvoicelistName)
-                .items.getById(numericId)
-                .delete();
-              console.log(`Deleted invoice item id ${numericId}`);
-            }
-          }
-          setDeletedInvoiceItemIDs([]);
-        } catch (delError) {
-          console.error("Error deleting invoice items:", delError);
-          showSnackbar("Failed to delete invoice items.", "error");
-        }
-      }
-
-      // ✅ Update main list fields
-      const mainListData: any = {
-        ApproverStatus: "Completed",
-        RunWF: "Yes",
-        SelectedSections: "",
-        ApproverComment: "",
-      };
-
-      // ✅ If any previous status was Generated, mark credit note upload flag as No
-      if (isCreditNoteGenerated) {
-        mainListData.IsCreditNoteUploaded = "No";
-      }
-
-      try {
-        await updateDataToSharePoint(MainList, mainListData, siteUrl, props.selectedRow.id);
-        console.log("Main list updated successfully.");
-      } catch (error) {
-        console.error("Error updating main list:", error);
-        showSnackbar("Failed to update the main list.", "error");
-      }
-
-      showSnackbar("Edit request updated successfully.", "success");
-
-      resetForm();
-      await props.refreshCmsDetails();
-      setIsLoading(false);
-
-      if (props.onExit) {
-        props.onExit();
-        return;
-      }
-
-      setNavigateToDashboard(true);
-      setTimeout(() => {
-        setDashboardKey((prev) => prev + 1);
-        setNavigateToDashboard(true);
-      }, 100);
-    }
-  } catch (error) {
-    console.error("Error updating edit request:", error);
-    showSnackbar("Failed to update edit request.", "error");
-  } finally {
-    setIsLoading(false);
-  }
-};
-*/
-
-  /* const handleUpdateEditRequest = async (
-    event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
-  ) => {
-    event?.preventDefault();
-    console.log("Update Edit Request clicked");
-    console.log(
-      "Deleted invoice item IDs (during edit):",
-      deletedInvoiceItemIDs
-    );
-
-    setIsLoading(true);
-    try {
-      const selectedSections =
-        props.selectedRow?.selectedSections?.toLowerCase();
-
-      if (!selectedSections) {
-        alert("No sections selected for update.");
-        return;
-      }
-
-      // ========== CLIENT SECTION ==========
-      if (selectedSections.includes("client")) {
-        if (!formData.customerEmail.trim()) {
-          showSnackbar("Customer Email is required.", "error");
-          return;
-        }
-        if (!formData.location.trim()) {
-          showSnackbar("Work Location is required.", "error");
-          return;
-        }
-        if (!formData.workTitle.trim()) {
-          showSnackbar("Work Title is required.", "error");
-          return;
-        }
-        if (!formData.workDetail.trim()) {
-          showSnackbar("Work Detail is required.", "error");
-          return;
-        }
-
-        const clientData = {
-          CustomerEmail: formData.customerEmail,
-          Location: formData.location,
-          WorkTitle: formData.workTitle,
-          WorkDetails: formData.workDetail,
-          ApproverStatus: "Completed",
-          RunWF: "Yes",
-          SelectedSections: "",
-          ApproverComment: "",
-        };
-
-        try {
-          await updateDataToSharePoint(
-            MainList,
-            clientData,
-            siteUrl,
-            props.selectedRow.id
-          );
-          console.log("Client section updated successfully.");
-        } catch (error) {
-          console.error("Error updating Client section:", error);
-          showSnackbar("Failed to update Client section.", "error");
-        }
-      }
-
-      // ========== PO SECTION ==========
-      if (selectedSections.includes("po")) {
-        if (!formData.poNo.trim()) {
-          showSnackbar("PO No is required.", "error");
-          return;
-        }
-
-        const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
-          formData.customerName
-        )}' and PoNo eq '${encodeURIComponent(formData.poNo)}' and ID ne ${
-          props.selectedRow.id
-        }`;
-        const poNoData = await getSharePointData(
-          { context },
-          MainList,
-          poNoFilterQuery
-        );
-
-        if (poNoData && poNoData.length > 0) {
-          showSnackbar(
-            "A record with this PO No already exists for the selected Customer Name.",
-            "error"
-          );
-          return;
-        }
-        if (!formData.poDate.trim()) {
-          showSnackbar("PO Date is required.", "error");
-          return;
-        }
-        if (!formData.poAmount || Number(formData.poAmount) <= 0) {
-          showSnackbar(
-            "PO Amount is required and must be greater than 0.",
-            "error"
-          );
-          return;
-        }
-
-        const poData = {
-          PoNo: formData.poNo,
-          PoDate: formData.poDate
-            ? moment(formData.poDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-            : null,
-          POAmount: Number(formData.poAmount),
-          BGDate: formData.bgDate
-            ? moment(formData.bgDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-            : null,
-          ApproverStatus: "Completed",
-          RunWF: "Yes",
-          SelectedSections: "",
-          ApproverComment: "",
-        };
-
-        try {
-          await updateDataToSharePoint(
-            MainList,
-            poData,
-            siteUrl,
-            props.selectedRow.id
-          );
-          console.log("PO section updated successfully.");
-        } catch (error) {
-          console.error("Error updating PO section:", error);
-          showSnackbar("Failed to update PO section.", "error");
-        }
-      }
-
-      // ========== INVOICE SECTION ==========
-      if (selectedSections.includes("invoice")) {
-        const poAmt = Number(formData.poAmount) || 0;
-
-        const totalInvoiceAmount = invoiceRows.reduce((sum, r) => {
-          if (r.InvoiceStatus === "Credit Note Uploaded") return sum;
-          return sum + (Number(r.InvoiceAmount) || 0);
-        }, 0);
-
-        const EPS = 0.01;
-        if (Math.abs(totalInvoiceAmount - poAmt) > EPS) {
-          showSnackbar(
-            `Total of invoice amounts (${totalInvoiceAmount.toFixed(
-              2
-            )}) must equal PO Amount (${poAmt.toFixed(2)}).`,
-            "error"
-          );
-          return;
-        }
-
-        // Flags for main list update
-        let isCreditNoteGenerated = false;
-        let isCreditNoteUploaded = false;
-
-        for (const row of invoiceRows) {
-          if (
-            !row.InvoiceDescription ||
-            !row.InvoiceAmount ||
-            !row.InvoiceDueDate
-          ) {
-            showSnackbar(
-              "One or more invoice rows have missing required fields.",
-              "warning"
-            );
-            return;
-          }
-
-          const invoiceData: any = {
-            Comments: row.InvoiceDescription,
-            PoAmount: Number(row.RemainingPoAmount),
-            InvoiceAmount: Number(row.InvoiceAmount),
-            InvoiceDueDate: row.InvoiceDueDate
-              ? moment(row.InvoiceDueDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-              : null,
-            EmailBody: row.InvoiceComment,
-            RequestID: props.selectedRow.id,
-            ClaimNo: row.id,
-            PrevInvoiceStatus: "",
-          };
-
-          // --- Handle transitions ---
-          if (
-            row.InvoiceStatus === "Pending Approval" &&
-            row.PrevInvoiceStatus !== "Generated"
-          ) {
-            invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
-          }
-          if (
-            row.InvoiceStatus === "Pending Approval" &&
-            row.PrevInvoiceStatus === "Generated"
-          ) {
-            invoiceData.InvoiceStatus = row.PrevInvoiceStatus;
-            invoiceData.PrevInvoiceStatus = row.PrevInvoiceStatus;
-          }
-
-          // --- Handle Credit Notes ---
-          if (
-            row.InvoiceStatus === "Credit Note Uploaded" &&
-            row.CreditNoteStatus === "Uploaded"
-          ) {
-            invoiceData.CreditNoteStatus = "Completed";
-            invoiceData.PrevInvoiceStatus = "";
-            isCreditNoteUploaded = true; // ✅ Track uploaded
-          } else if (row.CreditNoteStatus === "Pending") {
-            invoiceData.CreditNoteStatus = "Pending";
-          } else {
-            invoiceData.PrevInvoiceStatus = row.InvoiceStatus || "";
-          }
-
-          // --- Track Generated status ---
-          if (row.PrevInvoiceStatus === "Generated") {
-            isCreditNoteGenerated = true;
-          }
-
-          try {
-            if (row.itemID) {
-              await updateDataToSharePoint(
-                InvoicelistName,
-                invoiceData,
-                siteUrl,
-                row.itemID
-              );
-              console.log(`Invoice ${row.itemID} updated successfully.`);
-            } else {
-              invoiceData.InvoiceStatus = "Started";
-              await saveDataToSharePoint(InvoicelistName, invoiceData, siteUrl);
-              console.log("New invoice created successfully.");
-            }
-          } catch (error) {
-            console.error("Error updating/creating invoice:", error);
-            alert("Failed to update/create invoice.");
-          }
-        }
-
-        // --- Delete removed invoices ---
-        if (
-          Array.isArray(deletedInvoiceItemIDs) &&
-          deletedInvoiceItemIDs.length > 0
-        ) {
-          try {
-            for (const delId of deletedInvoiceItemIDs) {
-              const numericId = Number(delId);
-              if (!isNaN(numericId)) {
-                await sp.web.lists
-                  .getByTitle(InvoicelistName)
-                  .items.getById(numericId)
-                  .delete();
-                console.log(`Deleted invoice item id ${numericId}`);
-              }
-            }
-            setDeletedInvoiceItemIDs([]);
-          } catch (delError) {
-            console.error("Error deleting invoice items:", delError);
-            showSnackbar("Failed to delete invoice items.", "error");
-          }
-        }
-
-        // --- Update main list ---
-        const mainListData: any = {
-          ApproverStatus: "Completed",
-          RunWF: "Yes",
-          SelectedSections: "",
-          ApproverComment: "",
-        };
-
-        // ✅ Set flags
-        if (isCreditNoteGenerated) {
-          mainListData.IsCreditNoteUploaded = "No";
-        }
-        if (isCreditNoteUploaded) {
-          mainListData.IsCreditNoteUploaded = "Yes";
-        }
-
-        try {
-          await updateDataToSharePoint(
-            MainList,
-            mainListData,
-            siteUrl,
-            props.selectedRow.id
-          );
-          console.log("Main list updated successfully.");
-        } catch (error) {
-          console.error("Error updating main list:", error);
-          showSnackbar("Failed to update the main list.", "error");
-        }
-
-        showSnackbar("Edit request updated successfully.", "success");
-
-        resetForm();
-        await props.refreshCmsDetails();
-        setIsLoading(false);
-
-        if (props.onExit) {
-          props.onExit();
-          return;
-        }
-
-        setNavigateToDashboard(true);
-        setTimeout(() => {
-          setDashboardKey((prev) => prev + 1);
-          setNavigateToDashboard(true);
-        }, 100);
-      }
-    } catch (error) {
-      console.error("Error updating edit request:", error);
-      showSnackbar("Failed to update edit request.", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-*/
 
   const handleUpdateEditRequest = async (
     event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
@@ -4936,16 +4042,35 @@ const RequestForm = (props: ICmsRebuildProps) => {
             RequestID: props.selectedRow.id,
             ClaimNo: row.id,
             PrevInvoiceStatus: "",
+            RunWF: "Yes",
           };
 
-          // Handle Credit Note logic
+          // If row has no itemID, set status to Started
+          if (!row.itemID) {
+            invoiceData.InvoiceStatus = "Started";
+          }
+
+          // If InvoiceStatus is Pending Approval but previous was Generated, revert to previous
+          if (
+            row.InvoiceStatus === "Pending Approval" &&
+            row.PrevInvoiceStatus !== "Generated"
+          ) {
+            const newStatus = row.PrevInvoiceStatus || " ";
+            row.InvoiceStatus = newStatus;
+            invoiceData.InvoiceStatus = newStatus;
+          }
+
+          // Handle Credit Note status
           if (
             row.InvoiceStatus === "Credit Note Uploaded" &&
             row.CreditNoteStatus === "Uploaded"
           ) {
             invoiceData.CreditNoteStatus = "Completed";
             isCreditNoteUploaded = true;
-          } else if (row.PrevInvoiceStatus === "Generated") {
+          } else if (
+            row.PrevInvoiceStatus === "Generated" &&
+            row.CreditNoteStatus === "Pending"
+          ) {
             isCreditNoteGenerated = true;
           }
 
@@ -5166,64 +4291,38 @@ const RequestForm = (props: ICmsRebuildProps) => {
           </h3>
 
           {/* Conditionally render milestone and note message */}
-          {(props.rowEdit === "Yes" &&
+          {/* {(props.rowEdit === "Yes" &&
             ["Pending From Approver", "Approved", "Hold", "Reminder"].includes(
               props.selectedRow?.approverStatus
-            )) ||
+            )) 
+            ||
             (props.selectedRow?.isCreditNoteUploaded === "No" && (
               <div>
-                {/* <MilestoneBar status={props.selectedRow?.approverStatus} /> */}
-                /
+                
                 <MilestoneBar
                   status={props.selectedRow?.approverStatus}
                   isCreditNoteUploaded={props.selectedRow?.isCreditNoteUploaded}
                 />
-                {/* <div style={{ marginTop: 8 }}>
-                  <div
-                    style={{
-                      color: "#6c757d",
-                      fontStyle: "italic",
-                      fontSize: "1rem",
-                    }}
-                  >
-                    Note: The request is currently in the "
-                    <span style={{ fontWeight: "bold", color: "#155724" }}>
-                      {props.selectedRow?.approverStatus || "-"}
-                    </span>
-                    " stage.
-                  </div>
-
-                  <div style={{ marginTop: 6, fontSize: 14, color: "#343a40" }}>
-                    <span style={{ fontWeight: 600, marginRight: 8 }}>
-                      Selected Sections:
-                    </span>
-                    {props.selectedRow?.selectedSections ? (
-                      props.selectedRow.selectedSections
-                        .split(",")
-                        .map((s: string, idx: number) => (
-                          <span
-                            key={idx}
-                            style={{
-                              display: "inline-block",
-                              background: "#f1f3f5",
-                              color: "#212529",
-                              borderRadius: 12,
-                              padding: "4px 10px",
-                              marginRight: 6,
-                              fontWeight: 600,
-                              fontSize: 13,
-                            }}
-                          >
-                            {s.trim()}
-                          </span>
-                        ))
-                    ) : (
-                      <span style={{ color: "#6c757d" }}>None</span>
-                    )}
-                  </div>
-                </div> */}
               </div>
-            ))}
+            ))} */}
+          {props.rowEdit === "Yes" &&
+          ["Pending From Approver", "Approved", "Hold", "Reminder"].includes(
+            props.selectedRow?.approverStatus
+          ) ? (
+            <MilestoneBar
+              status={props.selectedRow?.approverStatus}
+              isCreditNoteUploaded={
+                props.selectedRow?.isCreditNoteUploaded === "No"
+                  ? "No"
+                  : undefined
+              }
+            />
+          ) : props.selectedRow?.isCreditNoteUploaded === "No" ? (
+            <MilestoneBar
+              status={props.selectedRow?.approverStatus}
+              isCreditNoteUploaded="No"
+            />
+          ) : null}
         </div>
         <form onSubmit={handleSubmit}>
           <div className="row">
@@ -7327,7 +6426,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                           fetchOperationalEdits(props.selectedRow?.id);
                         }}
                       >
-                        Old Requests
+                        All Requests
                       </button>
                     </div>
 
@@ -8219,7 +7318,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
                           )}
                           {showOldOperational && (
                             <div className="mb-3">
-                              <h6 className="mb-2">Old Requests</h6>
+                              <h6 className="mb-2">All Requests</h6>
                               {renderRows(oldRequests, false)}
                             </div>
                           )}

@@ -1651,7 +1651,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
       : invoiceRowsForCreditNote.filter(
           (row) =>
             row.invoiceStatus === "Credit Note Uploaded" &&
-            row.creditNoteStatus === "uploaded"
+            row.creditNoteStatus === "Completed"
         )
     : [];
 
@@ -2942,18 +2942,34 @@ const Dashboard = (props: ICmsRebuildProps) => {
           {/* Pagination Section */}
         </Box>
       ) : (
+        // <RequestForm
+        //   rowEdit={`Yes`}
+        //   rowId={selectedRowId} // Pass selectedRowId to RequestForm
+        //   selectedRow={selectedRow} // Pass rows to RequestForm
+        //   description={props.description}
+        //   context={props.context}
+        //   siteUrl={siteUrl}
+        //   userGroups={props.userGroups}
+        //   cmsDetails={props.cmsDetails}
+        //   refreshCmsDetails={props.refreshCmsDetails}
+        //   props={props}
+        // />
         <RequestForm
-          rowEdit={`Yes`}
-          rowId={selectedRowId} // Pass selectedRowId to RequestForm
-          selectedRow={selectedRow} // Pass rows to RequestForm
-          description={props.description}
-          context={props.context}
-          siteUrl={siteUrl}
-          userGroups={props.userGroups}
-          cmsDetails={props.cmsDetails}
-          refreshCmsDetails={props.refreshCmsDetails}
-          props={props}
-        />
+  rowEdit={`Yes`}
+  rowId={selectedRowId}
+  selectedRow={selectedRow}
+  description={props.description}
+  context={props.context}
+  siteUrl={siteUrl}
+  userGroups={props.userGroups}
+  cmsDetails={props.cmsDetails}
+  refreshCmsDetails={props.refreshCmsDetails}
+  onExit={() => {
+    console.log("Exiting RequestForm from Dashboard");
+    setSelectedRowId(null);
+    setSelectedRow(null);
+  }}
+/>
       )}
 
       {/* <FileUpload description={props.description} context={props.context} siteUrl={props.siteUrl} /> */}

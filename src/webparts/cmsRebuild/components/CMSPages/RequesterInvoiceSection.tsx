@@ -6,7 +6,7 @@
 /* eslint-disable no-unused-expressions*/
 /* eslint-disable  prefer-const */
 /* eslint-disable  react/no-unescaped-entities */
-
+//iosthreiht
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 // import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
@@ -1529,25 +1529,26 @@ export default function RequesterInvoiceSection({
                     )} */}
                     {props.rowEdit === "Yes" && (
   <td>
-    <span
-      className={`badge rounded-pill px-3 py-2 text-capitalize ${
-        row.InvoiceStatus === "Started"
-          ? "bg-primary-subtle text-primary-emphasis"
-          : row.InvoiceStatus === "Proceeded"
-          ? "bg-warning-subtle text-warning-emphasis"
-          : row.InvoiceStatus === "Generated"
-          ? "bg-info-subtle text-info-emphasis"
-          : row.InvoiceStatus === "Credit Note Uploaded"
-          ? "bg-success-subtle text-success-emphasis"
-          : row.InvoiceStatus === "Pending Approval"
-          ? "bg-orange-100 text-orange-700"
-          : "bg-secondary-subtle text-secondary-emphasis"
-      }`}
-      style={{  display: "inline-block", textAlign: "center" }}
-    >
-      {row.InvoiceStatus || "Unknown"}
-    </span>
-  </td>
+  <span
+    className={`badge rounded-pill px-3 py-2 text-capitalize ${
+      row.InvoiceStatus === "Started"
+        ? "bg-primary text-white"
+        : row.InvoiceStatus === "Proceeded"
+        ? "bg-warning text-dark"
+        : row.InvoiceStatus === "Generated"
+        ? "bg-info text-dark"
+        : row.InvoiceStatus === "Credit Note Uploaded"
+        ? "bg-success text-white"
+        : row.InvoiceStatus === "Pending Approval"
+        ? "bg-warning text-dark" 
+        : "bg-secondary text-white"
+    }`}
+    style={{ display: "inline-block", textAlign: "center" }}
+  >
+    {row.InvoiceStatus || "Started"}
+  </span>
+</td>
+
 )}
 
 
