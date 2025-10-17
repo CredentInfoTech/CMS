@@ -11,7 +11,10 @@ interface CreditNoteDetailsProps {
   props: any; // Pass props to access SharePoint context
 }
 
-const CreditNoteDetails: React.FC<CreditNoteDetailsProps> = ({ invoiceID, props }) => {
+const CreditNoteDetails: React.FC<CreditNoteDetailsProps> = ({
+  invoiceID,
+  props,
+}) => {
   const [creditNotes, setCreditNotes] = useState<
     Array<{
       fileName: string;
@@ -55,11 +58,13 @@ const CreditNoteDetails: React.FC<CreditNoteDetailsProps> = ({ invoiceID, props 
   }, [invoiceID]);
 
   if (creditNotes.length === 0) {
-    return <span style={{ color: "#888" }}>No Credit Notes Available</span>;
+    return null; // Do not show this section if there are no credit notes
   }
 
   return (
     <div className="table-responsive">
+      <h5>Credit Note Details</h5>
+
       <table className="table table-bordered">
         <thead className="table-light">
           <tr>

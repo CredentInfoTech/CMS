@@ -526,6 +526,7 @@ export default function RequesterInvoiceSection({
     // console.log(`History clicked for row ${row.itemID}`);
     // const filterQuery = `$filter=CMSRequestItemID eq '${row.itemID}'&$orderby=Id desc`;
     const filterQuery = `$select=*,Author/Title&$expand=Author&$filter=CMSRequestItemID eq '${row.itemID}'&$orderby=Id desc`;
+    setSelectedRow(row); // Set the selected row to access its itemID
 
     setHistoryLoading(true);
     setShowHistoryModal(true); // Show modal before fetching (or after if you prefer)
@@ -547,17 +548,6 @@ export default function RequesterInvoiceSection({
       setHistoryLoading(false);
     }
   };
-
-  //   const handleEditClick = (
-  //     e: React.MouseEvent<HTMLButtonElement>,
-  //     row: InvoiceRow
-  //   ) => {
-  //     e.preventDefault(); // Prevent form submission
-  //     setSelectedRow(row); // Set the selected row data
-  //     console.log(row);
-
-  //     setShowEditModal(true); // Show the modal
-  //   };
 
   const handleCloseModal = () => {
     setShowEditModal(false); // Close the modal
@@ -1693,13 +1683,17 @@ export default function RequesterInvoiceSection({
         size="lg"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Invoice Payment History</Modal.Title>
+          <Modal.Title>
+            Invoice Payment History / Credit Note Details
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {historyLoading ? (
             <div className="text-center">Loading...</div>
           ) : invoiceHistoryData.length > 0 ? (
             <div className="table-responsive">
+              <h5>Invoice Payment History</h5>
+
               <table className="table table-bordered">
                 <thead className="table-light">
                   <tr>
@@ -1731,26 +1725,23 @@ export default function RequesterInvoiceSection({
                   ))}
                 </tbody>
               </table>
-
-               {invoiceHistoryData.length > 0 && (
-          <div className="mt-4">
-            <h5>Credit Note Details</h5>
-            {invoiceHistoryData.map((item) => (
-              <div key={item.Id} className="mb-3">
-                <CreditNoteDetails
-                  invoiceID={item.CMSRequestItemID}
-                  props={props}
-                />
-              </div>
-            ))}
-          </div>
-        )}
             </div>
           ) : (
             <div className="text-center text-danger fw-bold">
               No payment received on this invoice.
             </div>
           )}
+
+          <div className="mt-4">
+            <div key={selectedRow?.itemID} className="mb-3">
+              <CreditNoteDetails
+                invoiceID={
+                  selectedRow?.itemID ? String(selectedRow.itemID) : ""
+                } // Convert to string or fallback to an empty string
+                props={props}
+              />
+            </div>
+          </div>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="danger" onClick={() => setShowHistoryModal(false)}>
