@@ -1651,7 +1651,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
       : invoiceRowsForCreditNote.filter(
           (row) =>
             row.invoiceStatus === "Credit Note Uploaded" &&
-            row.creditNoteStatus === "Completed"
+            (row.creditNoteStatus === "Uploaded" || row.creditNoteStatus === "Completed")
         )
     : [];
 

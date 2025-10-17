@@ -1732,17 +1732,19 @@ export default function RequesterInvoiceSection({
                 </tbody>
               </table>
 
-              <div className="mt-4">
-                <h5>Credit Note Details</h5>
-                {invoiceHistoryData.map((item) => (
-                  <div key={item.Id} className="mb-3">
-                    <CreditNoteDetails
-                      invoiceID={item.CMSRequestItemID}
-                      props={props}
-                    />
-                  </div>
-                ))}
+               {invoiceHistoryData.length > 0 && (
+          <div className="mt-4">
+            <h5>Credit Note Details</h5>
+            {invoiceHistoryData.map((item) => (
+              <div key={item.Id} className="mb-3">
+                <CreditNoteDetails
+                  invoiceID={item.CMSRequestItemID}
+                  props={props}
+                />
               </div>
+            ))}
+          </div>
+        )}
             </div>
           ) : (
             <div className="text-center text-danger fw-bold">

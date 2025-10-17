@@ -72,6 +72,7 @@ import AzureSection from "./AzureSectiontoday";
 import Dashboard from "./Dashboard"; // Import Dashboard component
 // import { FaPlus, FaTrash, FaCheck } from 'react-icons/fa';
 import Spinner from "react-bootstrap/Spinner";
+
 // import Alert from "antd/es/alert/Alert";
 // import { get } from "@microsoft/sp-lodash-subset";
 
@@ -275,7 +276,12 @@ const RequestForm = (props: ICmsRebuildProps) => {
   const bgFileInputRef = useRef<HTMLInputElement>(null); // Add ref for PO file input
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [reason, setReason] = useState("");
-
+  const [isSubmitting, setIsSubmitting] = useState(false); // Loader for modal
+  const [modalSnackbar, setModalSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
   useEffect(() => {
     const siteUrl = props.context.pageContext.web.absoluteUrl;
     const currentUser = props.context.pageContext.user.displayName;
@@ -735,6 +741,30 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
   }, [props.rowEdit, props.selectedRow, props.selectedRow?.invoiceDetails]);
 */
 
+  const fetchOperationalEdits = useCallback(
+    async (requestId?: number) => {
+      if (!requestId) {
+        setOperationalEdits([]);
+        return;
+      }
+      setLoadingOperationalEdits(true);
+      try {
+        const filter = `$select=*,Id&$filter=RequestID eq ${requestId}&$orderby=Id desc`;
+        const data = await getSharePointData(
+          { context },
+          OperationalEditRequest,
+          filter
+        );
+        setOperationalEdits(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to fetch operational edit requests:", err);
+      } finally {
+        setLoadingOperationalEdits(false);
+      }
+    },
+    [context]
+  );
+
   useEffect(() => {
     if (
       props.rowEdit === "Yes" &&
@@ -787,6 +817,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
         }
         return prevRows;
       });
+      fetchOperationalEdits(props.selectedRow.id);
     }
   }, [props.rowEdit, props.selectedRow, props.selectedRow?.invoiceDetails]);
 
@@ -3750,8 +3781,138 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
     setIsPopupOpen(false); // Close the popup
     setReason(""); // Reset the reason field
   };
-
   const handleSubmitEditRequestApproval = async (
+    event?: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    id?: number
+  ) => {
+    try {
+      event?.preventDefault();
+      if (typeof id !== "number") {
+        setModalSnackbar({
+          open: true,
+          message: "No request selected for approval.",
+          severity: "error",
+        });
+        return;
+      }
+
+      if (!reason || reason.trim() === "") {
+        setModalSnackbar({
+          open: true,
+          message: "Please provide a reason for the edit request.",
+          severity: "error",
+        });
+        return;
+      }
+
+      setIsSubmitting(true); // Show loader
+
+      const selectedSections = Object.entries(approvalChecks)
+        .filter(([_, checked]) => checked)
+        .map(([section]) => section)
+        .join(", ")
+        .trim();
+
+      let selectedInvoiceIDs: any[] = [];
+      if (approvalChecks.invoice) {
+        selectedInvoiceIDs = invoiceRows
+          .filter((row) => row.invoiceApprovalChecked)
+          .map((row) => row.itemID)
+          .filter((id) => id !== null);
+      }
+
+      const editRequestData = {
+        RequestID: id,
+        Reason: reason.trim(),
+        UserName: currentUser,
+        UserEmail: currentUserEmail,
+        SelectedSections: selectedSections,
+        Status: "Pending Approval",
+        InvoiceID: selectedInvoiceIDs.join(", "),
+        ContractID: formData.requestId || "",
+      };
+
+      await saveDataToSharePoint(
+        OperationalEditRequest,
+        editRequestData,
+        siteUrl
+      );
+
+      const mainListUpdateData = {
+        ApproverStatus: "Pending From Approver",
+        ApproverComment: removeWhiteSpace(reason),
+        SelectedSections: selectedSections,
+        RunWF: "Yes",
+      };
+
+      await updateDataToSharePoint(MainList, mainListUpdateData, siteUrl, id);
+
+      if (approvalChecks.invoice) {
+        const selectedInvoices = invoiceRows.filter(
+          (row) => row.invoiceApprovalChecked
+        );
+
+        for (const invoice of selectedInvoices) {
+          const invoiceUpdateData = {
+            PrevInvoiceStatus: invoice.InvoiceStatus || "",
+            InvoiceStatus: "Pending Approval",
+            RunWF: "Yes",
+          };
+
+          await updateDataToSharePoint(
+            InvoicelistName,
+            invoiceUpdateData,
+            siteUrl,
+            Number(invoice.itemID || null)
+          );
+        }
+      }
+
+      setModalSnackbar({
+        open: true,
+        message:
+          "Your request to edit has been sent to the Project Manager. Please be patient until it is approved.",
+        severity: "success",
+      });
+
+      setReason("");
+      setApprovalChecks({ client: false, po: false, invoice: false });
+      setIsPopupOpen(false);
+       showSnackbar(
+        "Your request to edit has been sent to the Project Manager. Please be patient until it is approved.",
+        "success"
+      );
+
+      // Clear form and navigate to dashboard
+      setReason("");
+      setApprovalChecks({ client: false, po: false, invoice: false });
+      setIsPopupOpen(false);
+
+      resetForm();
+      await props.refreshCmsDetails();
+      setIsLoading(false);
+      // alert("Form and data submitted successfully!");
+      if (props.onExit) {
+        props.onExit();
+        return;
+      }
+      setNavigateToDashboard(true);
+      setTimeout(() => {
+        setDashboardKey((prev) => prev + 1);
+        setNavigateToDashboard(true);
+      }, 100);
+    } catch (error) {
+      console.error("Failed to process edit request:", error);
+      setModalSnackbar({
+        open: true,
+        message: "Something went wrong while sending your edit request.",
+        severity: "error",
+      });
+    } finally {
+      setIsSubmitting(false); // Hide loader
+    }
+  };
+  /* const handleSubmitEditRequestApproval = async (
     event?: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     id?: number
   ) => {
@@ -3889,7 +4050,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  };*/
 
   const handleUpdateEditRequest = async (
     event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
@@ -4140,30 +4301,6 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
     }
   };
 
-  const fetchOperationalEdits = useCallback(
-    async (requestId?: number) => {
-      if (!requestId) {
-        setOperationalEdits([]);
-        return;
-      }
-      setLoadingOperationalEdits(true);
-      try {
-        const filter = `$select=*,Id&$filter=RequestID eq ${requestId}&$orderby=Id desc`;
-        const data = await getSharePointData(
-          { context },
-          OperationalEditRequest,
-          filter
-        );
-        setOperationalEdits(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to fetch operational edit requests:", err);
-      } finally {
-        setLoadingOperationalEdits(false);
-      }
-    },
-    [context]
-  );
-
   const handleReminder = async (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     id: number
@@ -4229,46 +4366,38 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
   };
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          className="snackbar-container"
+          sx={{
+            zIndex: 1065, // Higher than the modal's z-index
+            opacity: 1,
+          }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={
+              ["error", "info", "success", "warning"].includes(
+                snackbar.severity
+              )
+                ? (snackbar.severity as
+                    | "error"
+                    | "info"
+                    | "success"
+                    | "warning")
+                : "info"
+            }
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </div>
       {isLoading && <LoaderOverlay />}
       <div className="card p-4 shadow">
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <Snackbar
-            open={snackbar.open}
-            autoHideDuration={6000}
-            onClose={handleCloseSnackbar}
-            anchorOrigin={{ vertical: "top", horizontal: "center" }}
-            sx={{
-              zIndex: 1400, // Ensure it's above all other elements
-            }}
-            // style={{
-            //   display: "flex !important",
-            //   justifyContent: "center !important",
-            //   left: "0px !important",
-            // }}
-            //           style={{
-            //   zIndex: "2000 !important",
-            // }}
-            // sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}
-            className="snackbar-container"
-          >
-            <Alert
-              onClose={handleCloseSnackbar}
-              severity={
-                ["error", "info", "success", "warning"].includes(
-                  snackbar.severity
-                )
-                  ? (snackbar.severity as
-                      | "error"
-                      | "info"
-                      | "success"
-                      | "warning")
-                  : "info"
-              }
-            >
-              {snackbar.message}
-            </Alert>
-          </Snackbar>
-        </div>
         <div
           className="headingbar mb-5"
           // style={
@@ -6362,7 +6491,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
 
           {/* -------------------- Operational Edit Requests Section Start-------------------- */}
           {/* {props.rowEdit === "Yes" && props.selectedRow?.approverStatus ? ( */}
-          {props.rowEdit === "Yes" ? (
+          {props.rowEdit === "Yes" && operationalEdits.length > 0 ? (
             <div className="mt-4">
               <div
                 className="d-flex align-items-center justify-content-between sectionheader"
@@ -7136,23 +7265,6 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                       </>
                     )}
 
-                  {/* {requestClosed !== "Yes" ? ( */}
-                  {/* {!props.selectedRow?.poNo && requestClosed !== "Yes" ? (
-                    <button
-                      type="button"
-                      className="btn btn-info w-40 mt-3"
-                      onClick={(e) => handleUpdatePO(e, props.selectedRow.id)}
-                      // style={"display":"none"}
-                      style={{
-                        // backgroundColor: "#107c10",
-                        marginLeft: "10px",
-                        marginRight: "10px",
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faFloppyDisk} /> Update
-                    </button>
-                  ) : null} */}
-                  {/* Edit Request Approval button - requires at least one section checkbox checked */}
                   {props.rowEdit === "Yes" &&
                     props.selectedRow?.employeeEmail === currentUserEmail &&
                     requestClosed !== "Yes" &&
@@ -7195,23 +7307,6 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                       <button
                         type="button"
                         className="btn btn-primary w-40 mt-3"
-                        // onClick={(e) => {
-                        //   e.preventDefault();
-                        //   if (
-                        //     !approvalChecks.client &&
-                        //     !approvalChecks.po &&
-                        //     !approvalChecks.invoice
-                        //   ) {
-                        //     showSnackbar(
-                        //       "Please select at least one section (Client & Work / PO / Invoice) to approve the edit.",
-                        //       "error"
-                        //     );
-                        //     return;
-                        //   }
-                        //   // reuse existing edit handler
-                        //   handleEditRequestApproval(e, props.selectedRow.id);
-                        // }}
-                        // onClick={handleUpdateEditRequest}
                         onClick={(e) => handleUpdateEditRequest(e)}
                         style={{ marginLeft: "10px", marginRight: "10px" }}
                       >
@@ -7229,6 +7324,25 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                       <Modal.Title>Edit Request Approval</Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
+                      {isSubmitting && ( // Loader inside the modal
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            background: "rgba(255, 255, 255, 0.8)",
+                            zIndex: 1050,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Spinner animation="border" variant="primary" />
+                          <span className="ms-3">Submitting...</span>
+                        </div>
+                      )}
                       <div
                         style={{
                           display: "flex",
@@ -7236,15 +7350,109 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                           gap: "10px",
                         }}
                       >
-                        {/* Selected Checkbox Section Name */}
                         <div>
                           <label>
                             <strong>Selected Section:</strong>
                           </label>
                           <p>
-                            {/* {approvalChecks.client && "Client & Work Detail"},{" "}
-                            {approvalChecks.po && "PO Details"},{" "}
-                            {approvalChecks.invoice && "Invoice Details"} */}
+                            {[
+                              approvalChecks.client && "Client & Work Detail",
+                              approvalChecks.po && "PO Details",
+                              approvalChecks.invoice && "Invoice Details",
+                            ]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </p>
+                        </div>
+                        <div>
+                          <label htmlFor="reason">
+                            <strong>
+                              Reason:<span style={{ color: "red" }}>*</span>
+                            </strong>
+                          </label>
+                          <textarea
+                            id="reason"
+                            className="form-control"
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder="Enter your reason here..."
+                            rows={4}
+                          />
+                        </div>
+                      </div>
+                    </Modal.Body>
+                    <Modal.Footer>
+                      <Button
+                        variant="success"
+                        onClick={(e) => {
+                          if (selectedId !== null) {
+                            handleSubmitEditRequestApproval(e, selectedId);
+                          } else {
+                            setModalSnackbar({
+                              open: true,
+                              message: "No request selected for approval.",
+                              severity: "error",
+                            });
+                          }
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faPaperPlane} /> Submit
+                      </Button>
+                      <Button variant="danger" onClick={handleClosePopup}>
+                        Close
+                      </Button>
+                    </Modal.Footer>
+                    <Snackbar
+                      open={modalSnackbar.open}
+                      autoHideDuration={6000}
+                      onClose={() =>
+                        setModalSnackbar({ ...modalSnackbar, open: false })
+                      }
+                      anchorOrigin={{ vertical: "top", horizontal: "center" }}
+                    >
+                      <Alert
+                        onClose={() =>
+                          setModalSnackbar({ ...modalSnackbar, open: false })
+                        }
+                        severity={
+                          ["success", "error", "warning", "info"].includes(
+                            modalSnackbar.severity
+                          )
+                            ? (modalSnackbar.severity as
+                                | "success"
+                                | "error"
+                                | "warning"
+                                | "info")
+                            : "info" // Default to 'info' if the value is invalid
+                        }
+                      >
+                        {modalSnackbar.message}
+                      </Alert>
+                    </Snackbar>
+                  </Modal>
+                  {/* <Modal
+                    show={isPopupOpen}
+                    onHide={handleClosePopup}
+                    centered
+                    dialogClassName="custom-modal-width"
+                  >
+                    <Modal.Header closeButton className="custom-modal-header">
+                      <Modal.Title>Edit Request Approval</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <div>
+                          <label>
+                            <strong>Selected Section:</strong>
+                          </label>
+                          <p>
+                         
 
                             {[
                               approvalChecks.client && "Client & Work Detail",
@@ -7256,15 +7464,13 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                           </p>
                         </div>
 
-                        {/* Selected ID */}
                         <div style={{ display: "none" }}>
                           <label>
                             <strong>Selected ID:</strong>
                           </label>
-                          <p>{selectedId}</p> {/* Display the selected ID */}
+                          <p>{selectedId}</p> 
                         </div>
 
-                        {/* Reason Input */}
                         <div>
                           <label htmlFor="reason">
                             <strong>
@@ -7306,7 +7512,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                         Close
                       </Button>
                     </Modal.Footer>
-                  </Modal>
+                  </Modal> */}
                   {/* {requestClosed !== "Yes" ? (
                     <>
                       <button
@@ -7366,6 +7572,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                         <FontAwesomeIcon icon={faEdit} /> Edit Request
                       </button>
                     )} */}
+
                   {formData.approverStatus === "Approvd" &&
                     requestClosed !== "Yes" &&
                     proceedButtonCount > 0 && (
