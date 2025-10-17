@@ -1645,7 +1645,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
   financeFilter === "Credit Note Pending"
     ? statusFilter === "Pending"
       ? invoiceRowsForCreditNote.filter(
-          (row) => row.prevInvoiceStatus === "Generated" && row.creditNoteStatus === "Pending"
+          (row) => (row.prevInvoiceStatus === "Generated" || row.invoiceStatus ==="Pending Approval") && row.creditNoteStatus === "Pending"
 
         )
       : invoiceRowsForCreditNote.filter(

@@ -65,7 +65,7 @@ import {
   faUpload,
   faAngleUp,
   faAngleDown,
-  faFloppyDisk,
+  // faFloppyDisk,
   faBell,
 } from "@fortawesome/free-solid-svg-icons";
 import AzureSection from "./AzureSectiontoday";
@@ -484,30 +484,29 @@ const RequestForm = (props: ICmsRebuildProps) => {
   // };
 
   const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
-  try {
-    if (event && typeof event.preventDefault === "function") {
-      event.preventDefault();
-    }
+    try {
+      if (event && typeof event.preventDefault === "function") {
+        event.preventDefault();
+      }
 
-    if (typeof props.refreshCmsDetails === "function") {
-      await props.refreshCmsDetails();
-    }
+      if (typeof props.refreshCmsDetails === "function") {
+        await props.refreshCmsDetails();
+      }
 
-    if (typeof props.onExit === "function") {
-      props.onExit();
-      return;
-    }
+      if (typeof props.onExit === "function") {
+        props.onExit();
+        return;
+      }
 
-    console.error("onExit function is not provided.");
-  } catch (error) {
-    console.error("Error in handleExit:", error);
-  }
-};
+      console.error("onExit function is not provided.");
+    } catch (error) {
+      console.error("Error in handleExit:", error);
+    }
+  };
 
   // New helper: refresh UI and optionally navigate to dashboard.
   // Use navigate=false for approve/hold/reject/remind flows to avoid redirect.
- 
- 
+
   const finalizeAction = async (navigate = false) => {
     try {
       if (typeof props.refreshCmsDetails === "function") {
@@ -531,7 +530,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       console.error("finalizeAction error:", err);
     }
   };
-/*
+  /*
   // update handleExit to reuse helper (keeps previous behaviour)
   const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
     try {
@@ -543,7 +542,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
       console.error("Error in handleExit:", error);
     }
   };*/
-/*
+  /*
   const finalizeAction = async (navigate = false) => {
   try {
     if (typeof props.refreshCmsDetails === "function") {
@@ -2324,96 +2323,96 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
     }
   };
 
-  const handleUpdatePO = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    id: number
-  ) => {
-    e.preventDefault();
-    setIsLoading(true);
-    console.log("update button clicked", id);
-    if (!formData.poNo.trim() || !formData.poDate) {
-      setIsLoading(false);
-      alert("Please fill in the PO Number and PO Date before updating.");
-      setShowPODetails(true);
+  // const handleUpdatePO = async (
+  //   e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  //   id: number
+  // ) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+  //   console.log("update button clicked", id);
+  //   if (!formData.poNo.trim() || !formData.poDate) {
+  //     setIsLoading(false);
+  //     alert("Please fill in the PO Number and PO Date before updating.");
+  //     setShowPODetails(true);
 
-      setIsInvoiceSectionCollapsed(true);
+  //     setIsInvoiceSectionCollapsed(true);
 
-      return;
-    }
+  //     return;
+  //   }
 
-    if (formData.poNo.trim() || formData.bgRequired === "Yes") {
-      if (poUploadedAttachmentFiles.length === 0) {
-        setIsLoading(false);
-        alert("Please upload PO attachment.");
-        setShowPODetails(true);
-        setShowOtherAttachments(true);
-        setShowBGDetails(true);
-        setIsInvoiceSectionCollapsed(true);
+  //   if (formData.poNo.trim() || formData.bgRequired === "Yes") {
+  //     if (poUploadedAttachmentFiles.length === 0) {
+  //       setIsLoading(false);
+  //       alert("Please upload PO attachment.");
+  //       setShowPODetails(true);
+  //       setShowOtherAttachments(true);
+  //       setShowBGDetails(true);
+  //       setIsInvoiceSectionCollapsed(true);
 
-        return;
-      }
-    }
+  //       return;
+  //     }
+  //   }
 
-    const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
-      formData.customerName
-    )}' and PoNo eq '${encodeURIComponent(formData.poNo)}'`;
-    const poNoData = await getSharePointData(
-      { context },
-      MainList,
-      poNoFilterQuery
-    );
+  //   const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
+  //     formData.customerName
+  //   )}' and PoNo eq '${encodeURIComponent(formData.poNo)}'`;
+  //   const poNoData = await getSharePointData(
+  //     { context },
+  //     MainList,
+  //     poNoFilterQuery
+  //   );
 
-    if (poNoData && poNoData.length > 0) {
-      setShowPODetails(true);
-      setShowOtherAttachments(true);
-      setShowBGDetails(true);
-      setIsInvoiceSectionCollapsed(true);
+  //   if (poNoData && poNoData.length > 0) {
+  //     setShowPODetails(true);
+  //     setShowOtherAttachments(true);
+  //     setShowBGDetails(true);
+  //     setIsInvoiceSectionCollapsed(true);
 
-      setIsLoading(false);
-      alert(
-        "A record with this PO No already exists for the selected Customer Name."
-      );
-      return;
-    }
+  //     setIsLoading(false);
+  //     alert(
+  //       "A record with this PO No already exists for the selected Customer Name."
+  //     );
+  //     return;
+  //   }
 
-    const updatedata = {
-      PoNo: formData.poNo,
-      PoDate:
-        formData.poDate && formData.poDate.trim()
-          ? moment(formData.poDate, "DD-MM-YYYY").format("YYYY-MM-DD")
-          : null,
-      RunWF: "Yes",
-    };
+  //   const updatedata = {
+  //     PoNo: formData.poNo,
+  //     PoDate:
+  //       formData.poDate && formData.poDate.trim()
+  //         ? moment(formData.poDate, "DD-MM-YYYY").format("YYYY-MM-DD")
+  //         : null,
+  //     RunWF: "Yes",
+  //   };
 
-    try {
-      const updatedData = await updateDataToSharePoint(
-        MainList,
-        updatedata,
-        siteUrl,
-        id
-      );
-      console.log("updatedata", updatedData);
+  //   try {
+  //     const updatedData = await updateDataToSharePoint(
+  //       MainList,
+  //       updatedata,
+  //       siteUrl,
+  //       id
+  //     );
+  //     console.log("updatedata", updatedData);
 
-      await props.refreshCmsDetails();
-      setIsLoading(false);
-      alert("Po Request has been updated successfully.");
-      if (props.onExit) {
-        props.onExit();
-        return;
-      }
-      setNavigateToDashboard(true);
-      setTimeout(() => {
-        setDashboardKey((prev) => prev + 1);
-        setNavigateToDashboard(true);
-      }, 100);
-      setNavigateToDashboard(true);
-    } catch (error) {
-      console.error("Failed to update request:", error);
-      alert("Something went wrong while Update the data. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     await props.refreshCmsDetails();
+  //     setIsLoading(false);
+  //     alert("Po Request has been updated successfully.");
+  //     if (props.onExit) {
+  //       props.onExit();
+  //       return;
+  //     }
+  //     setNavigateToDashboard(true);
+  //     setTimeout(() => {
+  //       setDashboardKey((prev) => prev + 1);
+  //       setNavigateToDashboard(true);
+  //     }, 100);
+  //     setNavigateToDashboard(true);
+  //   } catch (error) {
+  //     console.error("Failed to update request:", error);
+  //     alert("Something went wrong while Update the data. Please try again.");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
   // const handleProceedReject = async (
   //   e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   //   id: number
@@ -3510,24 +3509,24 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
   // }
 
   if (navigateToDashboard) {
-  if (!props || !props.context || !props.cmsDetails) {
-    console.error("Missing required props for Dashboard component.");
-    return null; // Prevent rendering if props are invalid
-  }
+    if (!props || !props.context || !props.cmsDetails) {
+      console.error("Missing required props for Dashboard component.");
+      return null; // Prevent rendering if props are invalid
+    }
 
-  return (
-    <Dashboard
-      key={dashboardKey}
-      description={props.description}
-      context={props.context}
-      siteUrl={props.siteUrl}
-      userGroups={props.userGroups}
-      cmsDetails={props.cmsDetails}
-      refreshCmsDetails={props.refreshCmsDetails}
-      selectedMenu="Home"
-    />
-  );
-}
+    return (
+      <Dashboard
+        key={dashboardKey}
+        description={props.description}
+        context={props.context}
+        siteUrl={props.siteUrl}
+        userGroups={props.userGroups}
+        cmsDetails={props.cmsDetails}
+        refreshCmsDetails={props.refreshCmsDetails}
+        selectedMenu="Home"
+      />
+    );
+  }
 
   // Only show Edit Request button if at least one row has showProceed true
   // const hasProceedButton = invoiceRows.some(row => row.showProceed);
@@ -5072,41 +5071,50 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                     min={1}
                     onChange={(e) => {
                       const value = e.target.value;
-                      if (Number(value) < 0) return;
-                      // Update PO Amount and reset invoiceCriteria
-                      setFormData((prev) => ({
-                        ...prev,
-                        poAmount: value,
-                        invoiceCriteria: "",
-                      }));
-                      // Reset invoice rows
-                      setInvoiceRows([
-                        {
-                          id: 1,
-                          InvoiceDescription: "",
-                          RemainingPoAmount: "",
-                          InvoiceAmount: "",
-                          InvoiceDueDate: "",
-                          InvoiceProceedDate: "",
-                          InvoiceComment: "",
-                          showProceed: false,
-                          InvoiceStatus: "",
-                          userInGroup: false,
-                          employeeEmail: "",
-                          itemID: null,
-                          InvoiceNo: "",
-                          InvoiceDate: "",
-                          InvoiceTaxAmount: "",
-                          ClaimNo: null,
-                          PrevInvoiceStatus: "",
-                          CreditNoteStatus: "",
-                          RequestID: "",
-                          DocId: "",
-                          PendingAmount: "",
-                          InvoiceFileID: "",
-                          invoiceApprovalChecked: false, // Initialize here
-                        },
-                      ]);
+                      if (props.rowEdit === "Yes") {
+                        if (Number(value) < 0) return;
+                        // Update PO Amount and reset invoiceCriteria
+                        setFormData((prev) => ({
+                          ...prev,
+                          poAmount: value,
+                        }));
+                      } else {
+                        if (Number(value) < 0) return;
+                        // Update PO Amount and reset invoiceCriteria
+                        setFormData((prev) => ({
+                          ...prev,
+                          poAmount: value,
+                          invoiceCriteria: "",
+                        }));
+                        // Reset invoice rows
+                        setInvoiceRows([
+                          {
+                            id: 1,
+                            InvoiceDescription: "",
+                            RemainingPoAmount: "",
+                            InvoiceAmount: "",
+                            InvoiceDueDate: "",
+                            InvoiceProceedDate: "",
+                            InvoiceComment: "",
+                            showProceed: false,
+                            InvoiceStatus: "",
+                            userInGroup: false,
+                            employeeEmail: "",
+                            itemID: null,
+                            InvoiceNo: "",
+                            InvoiceDate: "",
+                            InvoiceTaxAmount: "",
+                            ClaimNo: null,
+                            PrevInvoiceStatus: "",
+                            CreditNoteStatus: "",
+                            RequestID: "",
+                            DocId: "",
+                            PendingAmount: "",
+                            InvoiceFileID: "",
+                            invoiceApprovalChecked: false, // Initialize here
+                          },
+                        ]);
+                      }
                     }}
                     // disabled={isDisabled}
                     disabled={
@@ -6565,249 +6573,6 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                               <>
                                                 <button
                                                   className="btn btn-success"
-                                                  // onClick={async (e) => {
-                                                  //   e.preventDefault();
-                                                  //   if (!row.Id) return;
-                                                  //   try {
-                                                  //     setIsLoading(true);
-
-                                                  //     // Initialize EditRequestData
-                                                  //     let EditRequestData: Record<
-                                                  //       string,
-                                                  //       any
-                                                  //     > = {
-                                                  //       RunWF: "Yes",
-                                                  //       Status: "Approved",
-                                                  //     };
-
-                                                  //     console.log(
-                                                  //       "Approving Row----",
-                                                  //       row
-                                                  //     );
-
-                                                  //     // ====== PO SECTION ======
-                                                  //     if (
-                                                  //       row?.SelectedSections?.includes(
-                                                  //         "po"
-                                                  //       )
-                                                  //     ) {
-                                                  //       EditRequestData = {
-                                                  //         ...EditRequestData,
-                                                  //         PoNo: formData.poNo,
-                                                  //         PoDate:
-                                                  //           formData.poDate
-                                                  //             ? moment(
-                                                  //                 formData.poDate,
-                                                  //                 "DD-MM-YYYY"
-                                                  //               ).format(
-                                                  //                 "YYYY-MM-DD"
-                                                  //               )
-                                                  //             : null,
-                                                  //         POAmount: Number(
-                                                  //           formData.poAmount
-                                                  //         ),
-                                                  //         BgDate:
-                                                  //           formData.bgDate
-                                                  //             ? moment(
-                                                  //                 formData.bgDate,
-                                                  //                 "DD-MM-YYYY"
-                                                  //               ).format(
-                                                  //                 "YYYY-MM-DD"
-                                                  //               )
-                                                  //             : null,
-                                                  //       };
-                                                  //     }
-
-                                                  //     // ====== CLIENT SECTION ======
-                                                  //     if (
-                                                  //       row?.SelectedSections?.includes(
-                                                  //         "client"
-                                                  //       )
-                                                  //     ) {
-                                                  //       EditRequestData = {
-                                                  //         ...EditRequestData,
-                                                  //         CustomerEmail:
-                                                  //           formData.customerEmail,
-                                                  //         Location:
-                                                  //           formData.location,
-                                                  //         WorkTitle:
-                                                  //           formData.workTitle,
-                                                  //         WorkDetails:
-                                                  //           formData.workDetail,
-                                                  //       };
-                                                  //     }
-
-                                                  //     // ====== INVOICE SECTION ======
-                                                  //     if (
-                                                  //       row?.SelectedSections?.includes(
-                                                  //         "invoice"
-                                                  //       )
-                                                  //     ) {
-                                                  //       for (const invoiceRow of invoiceRows) {
-                                                  //         if (
-                                                  //           invoiceRow?.InvoiceStatus ===
-                                                  //           "Pending Approval"
-                                                  //         ) {
-                                                  //           const invoiceDetails: any =
-                                                  //             {
-                                                  //               Comments:
-                                                  //                 invoiceRow.InvoiceDescription,
-                                                  //               InvoiceAmount:
-                                                  //                 Number(
-                                                  //                   invoiceRow.InvoiceAmount
-                                                  //                 ),
-                                                  //               InvoiceDueDate:
-                                                  //                 invoiceRow.InvoiceDueDate
-                                                  //                   ? moment(
-                                                  //                       invoiceRow.InvoiceDueDate,
-                                                  //                       "DD-MM-YYYY"
-                                                  //                     ).format(
-                                                  //                       "YYYY-MM-DD"
-                                                  //                     )
-                                                  //                   : null,
-                                                  //               RequestID:
-                                                  //                 invoiceRow.RequestID,
-                                                  //               ClaimNo:
-                                                  //                 invoiceRow?.ClaimNo ||
-                                                  //                 "",
-                                                  //               DocId:
-                                                  //                 invoiceRow?.DocId ||
-                                                  //                 "",
-                                                  //               InvoiceDate:
-                                                  //                 invoiceRow.InvoiceDate
-                                                  //                   ? moment(
-                                                  //                       invoiceRow.InvoiceDate,
-                                                  //                       "DD-MM-YYYY"
-                                                  //                     ).format(
-                                                  //                       "YYYY-MM-DD"
-                                                  //                     )
-                                                  //                   : null,
-                                                  //               InvoiceFileID:
-                                                  //                 invoiceRow?.InvoiceFileID ||
-                                                  //                 "",
-                                                  //               InvoicNo:
-                                                  //                 invoiceRow?.InvoiceNo ||
-                                                  //                 "",
-                                                  //               InvoiceStatus:
-                                                  //                 invoiceRow?.InvoiceStatus ||
-                                                  //                 "",
-                                                  //               InvoiceTaxAmount:
-                                                  //                 Number(
-                                                  //                   invoiceRow?.InvoiceTaxAmount
-                                                  //                 ) || 0,
-                                                  //               PendingAmount:
-                                                  //                 Number(
-                                                  //                   invoiceRow?.PendingAmount
-                                                  //                 ) || 0,
-                                                  //               PrevInvoiceStatus:
-                                                  //                 invoiceRow?.PrevInvoiceStatus ||
-                                                  //                 "",
-                                                  //               PoAmount:
-                                                  //                 Number(
-                                                  //                   invoiceRow?.RemainingPoAmount
-                                                  //                 ) || 0,
-                                                  //               ContractID:
-                                                  //                 formData.requestId ||
-                                                  //                 "",
-                                                  //               EditRequestItemID:
-                                                  //                 row.Id || "",
-                                                  //             };
-
-                                                  //           // ✅ If previous invoice status was "Generated"
-                                                  //           // then mark CreditNoteStatus as "Pending"
-                                                  //           if (
-                                                  //             invoiceRow?.PrevInvoiceStatus ===
-                                                  //             "Generated"
-                                                  //           ) {
-                                                  //             invoiceDetails.CreditNoteStatus =
-                                                  //               "Pending";
-
-                                                  //             // ✅ Also update this in the main InvoiceList
-                                                  //             if (
-                                                  //               invoiceRow?.itemID
-                                                  //             ) {
-                                                  //               try {
-                                                  //                 await updateDataToSharePoint(
-                                                  //                   InvoicelistName,
-                                                  //                   {
-                                                  //                     CreditNoteStatus:
-                                                  //                       "Pending",
-                                                  //                   },
-                                                  //                   siteUrl,
-                                                  //                   invoiceRow.itemID
-                                                  //                 );
-                                                  //                 console.log(
-                                                  //                   `CreditNoteStatus updated to "Pending" for invoice ID ${invoiceRow.itemID}`
-                                                  //                 );
-                                                  //               } catch (updateError) {
-                                                  //                 console.error(
-                                                  //                   "Error updating CreditNoteStatus in main InvoiceList:",
-                                                  //                   updateError
-                                                  //                 );
-                                                  //               }
-                                                  //             }
-                                                  //           }
-
-                                                  //           // ✅ Save invoice details to OperationalEditInvoiceHistory
-                                                  //           await saveDataToSharePoint(
-                                                  //             OperationalEditInvoiceHistory,
-                                                  //             invoiceDetails,
-                                                  //             siteUrl
-                                                  //           );
-                                                  //         }
-                                                  //       }
-                                                  //     }
-
-                                                  //     // ====== Update Operational Edit Request ======
-                                                  //     await updateDataToSharePoint(
-                                                  //       OperationalEditRequest,
-                                                  //       EditRequestData,
-                                                  //       siteUrl,
-                                                  //       row.Id
-                                                  //     );
-
-                                                  //     // ====== Mirror Status to Main List ======
-                                                  //     if (
-                                                  //       props.selectedRow?.id
-                                                  //     ) {
-                                                  //       await updateDataToSharePoint(
-                                                  //         MainList,
-                                                  //         {
-                                                  //           ApproverStatus:
-                                                  //             "Approved",
-                                                  //           RunWF: "Yes",
-                                                  //         },
-                                                  //         siteUrl,
-                                                  //         props.selectedRow.id
-                                                  //       );
-                                                  //     }
-
-                                                  //     // ====== Success and Refresh ======
-                                                  //     showSnackbar(
-                                                  //       "Request approved.",
-                                                  //       "success"
-                                                  //     );
-                                                  //     await fetchOperationalEdits(
-                                                  //       props.selectedRow?.id
-                                                  //     );
-                                                  //     await props.refreshCmsDetails?.();
-                                                  //     await finalizeAction(
-                                                  //       false
-                                                  //     );
-                                                  //   } catch (err) {
-                                                  //     console.error(
-                                                  //       "Error approving request:",
-                                                  //       err
-                                                  //     );
-                                                  //     showSnackbar(
-                                                  //       "Failed to approve request.",
-                                                  //       "error"
-                                                  //     );
-                                                  //   } finally {
-                                                  //     setIsLoading(false);
-                                                  //   }
-                                                  // }}
-
                                                   onClick={async () => {
                                                     if (!row.Id) return;
                                                     try {
@@ -7372,7 +7137,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                     )}
 
                   {/* {requestClosed !== "Yes" ? ( */}
-                  {!props.selectedRow?.poNo && requestClosed !== "Yes" ? (
+                  {/* {!props.selectedRow?.poNo && requestClosed !== "Yes" ? (
                     <button
                       type="button"
                       className="btn btn-info w-40 mt-3"
@@ -7386,7 +7151,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                     >
                       <FontAwesomeIcon icon={faFloppyDisk} /> Update
                     </button>
-                  ) : null}
+                  ) : null} */}
                   {/* Edit Request Approval button - requires at least one section checkbox checked */}
                   {props.rowEdit === "Yes" &&
                     props.selectedRow?.employeeEmail === currentUserEmail &&

@@ -1151,8 +1151,11 @@ export default function RequesterInvoiceSection({
 
                   // If user belongs to CMSAccountGroup → apply filter
                   if (userGroups.includes("CMSAccountGroup")) {
-                    return row.InvoiceStatus !== "Started";
+                    return !["Started", "Pending Approval", ""].includes(
+                      row.InvoiceStatus
+                    );
                   }
+
                   // Otherwise → show all rows
                   return true;
                 })
@@ -1528,29 +1531,30 @@ export default function RequesterInvoiceSection({
                     <td> {row.InvoiceStatus || "-"}</td>
                     )} */}
                     {props.rowEdit === "Yes" && (
-  <td>
-  <span
-    className={`badge rounded-pill px-3 py-2 text-capitalize ${
-      row.InvoiceStatus === "Started"
-        ? "bg-primary text-white"
-        : row.InvoiceStatus === "Proceeded"
-        ? "bg-warning text-dark"
-        : row.InvoiceStatus === "Generated"
-        ? "bg-info text-dark"
-        : row.InvoiceStatus === "Credit Note Uploaded"
-        ? "bg-success text-white"
-        : row.InvoiceStatus === "Pending Approval"
-        ? "bg-warning text-dark" 
-        : "bg-secondary text-white"
-    }`}
-    style={{ display: "inline-block", textAlign: "center" }}
-  >
-    {row.InvoiceStatus || "Started"}
-  </span>
-</td>
-
-)}
-
+                      <td>
+                        <span
+                          className={`badge rounded-pill px-3 py-2 text-capitalize ${
+                            row.InvoiceStatus === "Started"
+                              ? "bg-primary text-white"
+                              : row.InvoiceStatus === "Proceeded"
+                              ? "bg-warning text-dark"
+                              : row.InvoiceStatus === "Generated"
+                              ? "bg-info text-dark"
+                              : row.InvoiceStatus === "Credit Note Uploaded"
+                              ? "bg-success text-white"
+                              : row.InvoiceStatus === "Pending Approval"
+                              ? "bg-warning text-dark"
+                              : "bg-secondary text-white"
+                          }`}
+                          style={{
+                            display: "inline-block",
+                            textAlign: "center",
+                          }}
+                        >
+                          {row.InvoiceStatus || "Started"}
+                        </span>
+                      </td>
+                    )}
 
                     <td className="fixedcolumn">
                       {isEditMode && row.showProceed && (
