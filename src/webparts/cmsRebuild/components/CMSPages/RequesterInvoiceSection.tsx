@@ -517,7 +517,7 @@ export default function RequesterInvoiceSection({
     }
   };
   // console.log(invoiceRows, "invoiceRowsabc"); // Log invoiceRows to check its value
-  // console.log(approverStatus, "approverStatusinvoiceRowsabc"); // Log invoiceRows to check its value
+  // console.log(5, "approverStatusinvoiceRowsabc"); // Log invoiceRows to check its value
   const handleHistoryClick = async (
     e: React.MouseEvent<HTMLButtonElement>,
     row: any
@@ -1522,29 +1522,40 @@ export default function RequesterInvoiceSection({
                     )} */}
                     {props.rowEdit === "Yes" && (
                       <td>
-                        <span
-                          className={`badge rounded-pill px-3 py-2 text-capitalize ${
-                            row.InvoiceStatus === "Started"
-                              ? "bg-primary text-white"
-                              : row.InvoiceStatus === "Proceeded"
-                              ? "bg-warning text-dark"
-                              : row.InvoiceStatus === "Generated"
-                              ? "bg-info text-dark"
-                              : row.InvoiceStatus === "Credit Note Uploaded"
-                              ? "bg-success text-white"
-                              : row.InvoiceStatus === "Pending Approval"
-                              ? "bg-warning text-dark"
-                              : "bg-secondary text-white"
-                          }`}
-                          style={{
-                            display: "inline-block",
-                            textAlign: "center",
-                          }}
-                        >
-                          {row.InvoiceStatus || "Started"}
-                        </span>
+                        {(() => {
+                          // Determine the display text based on conditions
+                          const displayStatus =
+                            props.selectedRow?.approverStatus === "Approved" &&
+                              row.InvoiceStatus === "Pending Approval"
+                              ? "On Editing"
+                              : row.InvoiceStatus || "Started";
+
+                          return (
+                            <span
+                              className={`badge rounded-pill px-3 py-2 text-capitalize ${displayStatus === "Started"
+                                  ? "bg-primary text-white"
+                                  : displayStatus === "Proceeded"
+                                    ? "bg-warning text-dark"
+                                    : displayStatus === "Generated"
+                                      ? "bg-info text-dark"
+                                      : displayStatus === "Credit Note Uploaded"
+                                        ? "bg-success text-white"
+                                        : displayStatus === "On Editing"
+                                          ? "bg-warning text-dark"
+                                          : "bg-secondary text-white"
+                                }`}
+                              style={{
+                                display: "inline-block",
+                                textAlign: "center",
+                              }}
+                            >
+                              {displayStatus}
+                            </span>
+                          );
+                        })()}
                       </td>
                     )}
+
 
                     <td className="fixedcolumn">
                       {isEditMode && row.showProceed && (

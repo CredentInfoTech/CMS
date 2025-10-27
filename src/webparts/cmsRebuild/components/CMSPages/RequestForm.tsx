@@ -6505,18 +6505,44 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                 aria-controls="operationalEditsCollapse"
               >
                 <h5 className="fw-bold headingColor">Edit Requests History</h5>
+
                 <button
                   type="button"
                   className="btn btn-link"
-                  onClick={() => setShowOperationalEdits((prev) => !prev)}
+                  onClick={() => {
+                    setShowOperationalEdits((prev) => !prev);
+                    if (!showOperationalEdits) {
+                      fetchOperationalEdits(props.selectedRow?.id);
+                    }
+                  }}
                   aria-expanded={showOperationalEdits}
                   aria-controls="operationalEditsCollapse"
                   style={{ textDecoration: "none", color: "#ffffff" }}
                 >
                   {showOperationalEdits ? (
-                    <FontAwesomeIcon icon={faAngleUp} />
+                    <FontAwesomeIcon
+                      icon={faAngleUp}
+                      onClick={() => {
+                        setShowOperationalEdits((prev) => !prev);
+                        if (!showOperationalEdits) {
+                          fetchOperationalEdits(props.selectedRow?.id);
+                        }
+                      }}
+                      aria-expanded={showOperationalEdits}
+                      aria-controls="operationalEditsCollapse"
+                    />
                   ) : (
-                    <FontAwesomeIcon icon={faAngleDown} />
+                    <FontAwesomeIcon
+                      icon={faAngleDown}
+                      onClick={() => {
+                        setShowOperationalEdits((prev) => !prev);
+                        if (!showOperationalEdits) {
+                          fetchOperationalEdits(props.selectedRow?.id);
+                        }
+                      }}
+                      aria-expanded={showOperationalEdits}
+                      aria-controls="operationalEditsCollapse"
+                    />
                   )}
                 </button>
               </div>
@@ -6617,6 +6643,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                   <th>Reason</th>
                                   <th>Selected Sections</th>
                                   <th style={{ width: 180 }}>User</th>
+                                  <th style={{ width: 150 }}>Created Date</th>
                                   <th style={{ width: 120 }}>Status</th>
                                   {showActions && (
                                     <th
@@ -6670,6 +6697,11 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                         })}
                                     </td>
                                     <td>{row.UserName || "-"}</td>
+                                                  <td>
+                                      {row.Created
+                                        ? new Date(row.Created).toLocaleDateString("en-GB")
+                                        : "-"}
+                                    </td>
                                     <td>
                                       <span
                                         className={`badge ${
@@ -7381,27 +7413,47 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                         </div>
                       </div>
                     </Modal.Body>
-                    <Modal.Footer>
-                      <Button
-                        variant="success"
-                        onClick={(e) => {
-                          if (selectedId !== null) {
-                            handleSubmitEditRequestApproval(e, selectedId);
-                          } else {
-                            setModalSnackbar({
-                              open: true,
-                              message: "No request selected for approval.",
-                              severity: "error",
-                            });
-                          }
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faPaperPlane} /> Submit
-                      </Button>
-                      <Button variant="danger" onClick={handleClosePopup}>
-                        Close
-                      </Button>
-                    </Modal.Footer>
+                      <Modal.Footer className="d-flex justify-content-between">
+                        <Button
+                          variant="secondary"
+                          onClick={handleClosePopup}
+                          disabled={isSubmitting}
+                        >
+                          Close
+                        </Button>
+
+                        <Button
+                          variant="success"
+                          disabled={isSubmitting}
+                          onClick={(e) => {
+                            if (selectedId !== null) {
+                              handleSubmitEditRequestApproval(e, selectedId);
+                            } else {
+                              setModalSnackbar({
+                                open: true,
+                                message: "No request selected for approval.",
+                                severity: "error",
+                              });
+                            }
+                          }}
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <Spinner
+                                as="span"
+                                animation="border"
+                                size="sm"
+                                role="status"
+                                aria-hidden="true"
+                                className="me-2"
+                              />
+                              Submitting...
+                            </>
+                          ) : (
+                            "Submit"
+                          )}
+                        </Button>
+                      </Modal.Footer>
                     <Snackbar
                       open={modalSnackbar.open}
                       autoHideDuration={6000}
