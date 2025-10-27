@@ -5,7 +5,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
-import { DataGrid, GridColDef, GridRenderCellParams, GridPaginationModel, GridToolbar } from "@mui/x-data-grid";
+import { DataGrid, GridColDef, GridPaginationModel, GridRenderCellParams, GridToolbar } from "@mui/x-data-grid";
 import { Button, Stack, Typography, TextField } from "@mui/material";
 import { Save, Add, ExitToApp, Delete } from "@mui/icons-material";
 import {
@@ -47,7 +47,25 @@ export default function ListDetail({
         try {
             setLoading(true);
 
-            // Fetch list fields
+            // STEP 1️⃣: Fetch the column visibility rule from CMSMasterListsDetail
+            const configRes = await fetch(
+                `${siteUrl}/_api/web/lists/getbytitle('CMSMasterListsDetail')/items?$filter=Title eq '${listName}'`,
+                { headers: { Accept: "application/json;odata=verbose" } }
+            );
+            const configJson = await configRes.json();
+
+            let allowedFields: string[] = [];
+            if (configJson.d.results.length > 0) {
+                const columnDetails = configJson.d.results[0].ColumnDetails;
+                if (columnDetails) {
+                    allowedFields = columnDetails.split(",").map((x: string) => x.trim());
+                    console.log("✅ Allowed fields for this list:", allowedFields);
+                }
+            } else {
+                console.warn(`⚠️ No configuration found in CMSMasterListsDetail for ${listName}`);
+            }
+
+            // STEP 2️⃣: Fetch all visible fields from the actual list
             const fieldsRes = await fetch(
                 `${siteUrl}/_api/web/lists/getbytitle('${listName}')/fields?$filter=Hidden eq false and ReadOnlyField eq false`,
                 { headers: { Accept: "application/json;odata=verbose" } }
@@ -55,162 +73,158 @@ export default function ListDetail({
             const fieldsJson = await fieldsRes.json();
             const fieldData = fieldsJson.d.results;
 
-            // Build DataGrid columns dynamically
-            const dynamicColumns: GridColDef[] = fieldData
-                .filter((field: any) =>
-                    !field.Hidden &&
-                    (field.InternalName === "Title" ||
-                        (!field.FromBaseType &&
-                            !["Attachments", "Editor", "Author", "ContentTypeId"].includes(field.InternalName)))
-                )
-                .map((field: any) => {
-                    let renderCell: GridColDef["renderCell"];
+            // STEP 3️⃣: Filter fields based on allowed list
+            const filteredFields = allowedFields.length
+                ? fieldData.filter((f: any) => allowedFields.includes(f.InternalName))
+                : fieldData; // fallback if config missing
 
-                    // 🎯 Choice Field → Dropdown
-                    if (field.TypeAsString === "Choice" && field.Choices?.results?.length > 0) {
-                        renderCell = (params: GridRenderCellParams) => (
-                            <TextField
-                                select
-                                variant="outlined"
-                                size="small"
-                                fullWidth
-                                SelectProps={{ native: true }}
-                                value={params.row[field.InternalName] || ""}
-                                onChange={(e) => {
-                                    const newValue = e.target.value;
-                                    setRows((prev) =>
-                                        prev.map((r) =>
-                                            r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
-                                        )
-                                    );
-                                    setUnsavedChanges(true);
-                                }}
-                            >
-                                <option value="">--Select--</option>
-                                {field.Choices.results.map((choice: string) => (
-                                    <option key={choice} value={choice}>
-                                        {choice}
-                                    </option>
-                                ))}
-                            </TextField>
-                        );
-                    }
+            console.log("🧩 Filtered fields to render:", filteredFields.map((f: any) => f.InternalName));
 
-                    // 🎯 Boolean Field → Checkbox
-                    else if (field.TypeAsString === "Boolean") {
-                        renderCell = (params: GridRenderCellParams) => (
-                            <input
-                                type="checkbox"
-                                checked={!!params.row[field.InternalName]}
-                                onChange={(e) => {
-                                    const newValue = e.target.checked;
-                                    setRows((prev) =>
-                                        prev.map((r) =>
-                                            r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
-                                        )
-                                    );
-                                    setUnsavedChanges(true);
-                                }}
-                            />
-                        );
-                    }
+            // STEP 4️⃣: Build DataGrid columns dynamically
+            const dynamicColumns: GridColDef[] = filteredFields.map((field: any) => {
+                let renderCell: GridColDef["renderCell"];
 
-                    // 🎯 DateTime Field → Date Picker
-                    else if (field.TypeAsString === "DateTime") {
-                        renderCell = (params: GridRenderCellParams) => (
-                            <TextField
-                                type="date"
-                                variant="outlined"
-                                size="small"
-                                fullWidth
-                                value={
-                                    params.row[field.InternalName]
-                                        ? params.row[field.InternalName].split("T")[0]
-                                        : ""
+                if (field.TypeAsString === "Choice" && field.Choices?.results?.length > 0) {
+                    renderCell = (params: GridRenderCellParams) => (
+                        <TextField
+                            select
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            SelectProps={{ native: true }}
+                            value={params.row[field.InternalName] || ""}
+                            onChange={(e) => {
+                                const newValue = e.target.value;
+                                setRows((prev) =>
+                                    prev.map((r) =>
+                                        r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
+                                    )
+                                );
+                                setUnsavedChanges(true);
+                            }}
+                        >
+                            <option value="">--Select--</option>
+                            {field.Choices.results.map((choice: string) => (
+                                <option key={choice} value={choice}>
+                                    {choice}
+                                </option>
+                            ))}
+                        </TextField>
+                    );
+                }
+
+                // 🎯 Boolean Field → Checkbox
+                else if (field.TypeAsString === "Boolean") {
+                    renderCell = (params: GridRenderCellParams) => (
+                        <input
+                            type="checkbox"
+                            checked={!!params.row[field.InternalName]}
+                            onChange={(e) => {
+                                const newValue = e.target.checked;
+                                setRows((prev) =>
+                                    prev.map((r) =>
+                                        r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
+                                    )
+                                );
+                                setUnsavedChanges(true);
+                            }}
+                        />
+                    );
+                }
+
+                // 🎯 DateTime Field → Date Picker
+                else if (field.TypeAsString === "DateTime") {
+                    renderCell = (params: GridRenderCellParams) => (
+                        <TextField
+                            type="date"
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            value={
+                                params.row[field.InternalName]
+                                    ? params.row[field.InternalName].split("T")[0]
+                                    : ""
+                            }
+                            onChange={(e) => {
+                                const newValue = e.target.value;
+                                setRows((prev) =>
+                                    prev.map((r) =>
+                                        r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
+                                    )
+                                );
+                                setUnsavedChanges(true);
+                            }}
+                        />
+                    );
+                }
+
+                // 🎯 Number Field → Numeric Input
+                else if (field.TypeAsString === "Number") {
+                    renderCell = (params: GridRenderCellParams) => (
+                        <TextField
+                            type="number"
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            slotProps={{
+                                htmlInput: {
+                                    min: 0, // 🔹 Prevent negative numbers
+                                },
+                            }}
+                            value={params.row[field.InternalName] || ""}
+                            onKeyDown={(e) => {
+                                if (e.key === "-" || e.key === "e" || e.key === "+") {
+                                    e.preventDefault(); // prevent entering negative or invalid chars
                                 }
-                                onChange={(e) => {
-                                    const newValue = e.target.value;
-                                    setRows((prev) =>
-                                        prev.map((r) =>
-                                            r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
-                                        )
-                                    );
-                                    setUnsavedChanges(true);
-                                }}
-                            />
-                        );
-                    }
+                            }}
+                            onChange={(e) => {
+                                const newValue = e.target.value === "" ? "" : Number(e.target.value);
+                                setRows((prev) =>
+                                    prev.map((r) =>
+                                        r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
+                                    )
+                                );
+                                setUnsavedChanges(true);
+                            }}
+                        />
+                    );
+                }
 
-                    // 🎯 Number Field → Numeric Input
-                    else if (field.TypeAsString === "Number") {
-                        renderCell = (params: GridRenderCellParams) => (
-                            <TextField
-                                type="number"
-                                variant="outlined"
-                                size="small"
-                                fullWidth
-                                slotProps={{
-                                    htmlInput: {
-                                        min: 0, // 🔹 Prevent negative numbers
-                                    },
-                                }}
-                                value={params.row[field.InternalName] || ""}
-                                onKeyDown={(e) => {
-                                    if (e.key === "-" || e.key === "e" || e.key === "+") {
-                                        e.preventDefault(); // prevent entering negative or invalid chars
-                                    }
-                                }}
-                                onChange={(e) => {
-                                    const newValue = e.target.value === "" ? "" : Number(e.target.value);
-                                    setRows((prev) =>
-                                        prev.map((r) =>
-                                            r.id === params.row.id ? { ...r, [field.InternalName]: newValue } : r
-                                        )
-                                    );
-                                    setUnsavedChanges(true);
-                                }}
-                            />
-                        );
-                    }
+                // 🎯 Default → TextField
+                else {
+                    renderCell = (params: GridRenderCellParams) => (
+                        <TextField
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            value={params.row[params.field] || ""}
+                            onChange={(e) => {
+                                let newValue = e.target.value;
+                                // Replace consecutive spaces with a single space
+                                newValue = newValue.replace(/\s{2,}/g, ' ');
+                                setRows((prev) =>
+                                    prev.map((r) =>
+                                        r.id === params.row.id ? { ...r, [params.field]: newValue } : r
+                                    )
+                                );
+                                setUnsavedChanges(true);
+                            }}
+                            onKeyDown={(e) => {
+                                e.stopPropagation(); // 🔹 Prevent DataGrid from handling SPACE (and other keys)
+                            }}
+                        />
 
-                    // 🎯 Default → TextField
-                    else {
-                        renderCell = (params: GridRenderCellParams) => (
-                            <TextField
-                                variant="outlined"
-                                size="small"
-                                fullWidth
-                                value={params.row[params.field] || ""}
-                                onChange={(e) => {
-                                    let newValue = e.target.value;
-                                    // Replace consecutive spaces with a single space
-                                    newValue = newValue.replace(/\s{2,}/g, ' ');
-                                    setRows((prev) =>
-                                        prev.map((r) =>
-                                            r.id === params.row.id ? { ...r, [params.field]: newValue } : r
-                                        )
-                                    );
-                                    setUnsavedChanges(true);
-                                }}
-                                onKeyDown={(e) => {
-                                    e.stopPropagation(); // 🔹 Prevent DataGrid from handling SPACE (and other keys)
-                                }}
-                            />
+                    );
+                }
 
-                        );
-                    }
-
-                    return {
-                        field: field.InternalName,
-                        headerName: field.Title,
-                        flex: 1,
-                        minWidth: 150,
-                        renderCell,
-                    };
-                });
-
-
-
+                return {
+                    field: field.InternalName,
+                    headerName: field.Title,
+                    flex: 1,
+                    minWidth: 150,
+                    renderCell,
+                };
+            });
             // Add Actions column
             dynamicColumns.push({
                 field: "actions",
@@ -225,7 +239,7 @@ export default function ListDetail({
                             size="small"
                             startIcon={<Save />}
                             onClick={() => handleSave(params.id)}
-                            disabled={loading} // <-- Only enable when rows are loaded
+                            disabled={loading}
                         >
                             Save
                         </Button>
@@ -244,15 +258,14 @@ export default function ListDetail({
             });
 
             setColumns(dynamicColumns);
-            columnsRef.current = dynamicColumns; // ✅ Keep ref synced
+            columnsRef.current = dynamicColumns;
 
-            // Fetch list items
+            // STEP 5️⃣: Fetch list items
             const itemsRes = await fetch(
                 `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`,
                 { headers: { Accept: "application/json;odata=verbose" } }
             );
             const itemsJson = await itemsRes.json();
-            console.log("SharePoint items response:", itemsJson);
 
             const mappedRows = itemsJson.d.results.map((item: any) => ({
                 id: item.Id,
@@ -267,6 +280,7 @@ export default function ListDetail({
             setLoading(false);
         }
     };
+
 
     /** 🔹 Fetch on mount or list change */
     useEffect(() => {
