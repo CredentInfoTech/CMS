@@ -335,6 +335,19 @@ export default function ListDetail({
                 return;
             }
 
+            // 🔹 Prevent duplicate Title
+            const duplicate = rowsRef.current.some(
+                (r) =>
+                    r.id !== actualRow.id &&
+                    r.Title?.trim().toLowerCase() === actualRow.Title?.trim().toLowerCase()
+            );
+
+            if (duplicate) {
+                alert(`⚠️ A record with the title "${actualRow.Title}" already exists. Please use a unique title.`);
+                return;
+            }
+
+
 
             // // 🔹 Prevent negative DiscountPercentage / SupportValue
             // const invalidFields: string[] = [];
