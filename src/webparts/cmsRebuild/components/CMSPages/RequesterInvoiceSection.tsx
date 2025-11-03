@@ -6,6 +6,7 @@
 /* eslint-disable no-unused-expressions*/
 /* eslint-disable  prefer-const */
 /* eslint-disable  react/no-unescaped-entities */
+/*eslint-disable @typescript-eslint/no-use-before-define */
 //iosthreiht
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -203,7 +204,7 @@ export default function RequesterInvoiceSection({
   // const deleteInvoiceRow = (id: number) => {
   //   setInvoiceRows(invoiceRows.filter((row) => row.id !== id));
   // };
-
+/*
   const deleteInvoiceRow = (id: number) => {
     // find the row about to be deleted
     const rowToDelete = invoiceRows.find((row) => row.id === id);
@@ -229,7 +230,65 @@ export default function RequesterInvoiceSection({
     // remove the row from UI
     setInvoiceRows(invoiceRows.filter((row) => row.id !== id));
   };
+*/
 
+const deleteInvoiceRow = (id: number) => {
+  // find the row about to be deleted
+  const rowToDelete = invoiceRows.find((row) => row.id === id);
+
+  // if in edit mode and row has an existing itemID, push it into parent's deleted IDs array
+  if (props?.rowEdit === "Yes" && rowToDelete?.itemID) {
+    const numericItemId = Number(rowToDelete.itemID);
+    if (
+      !isNaN(numericItemId) &&
+      typeof setDeletedInvoiceItemIDs === "function"
+    ) {
+      setDeletedInvoiceItemIDs((prev) => {
+        // avoid duplicates
+        if (prev.includes(numericItemId)) return prev;
+        return [...prev, numericItemId];
+      });
+    }
+  }
+
+  // Remove the row from UI
+  let updatedRows = invoiceRows.filter((row) => row.id !== id);
+
+  // If no rows left, add a blank row
+  if (updatedRows.length === 0) {
+    updatedRows = [
+      {
+        id: 1,
+        InvoiceDescription: "",
+        RemainingPoAmount: totalPoAmount.toFixed(2),
+        InvoiceAmount: "",
+        InvoiceDueDate: "",
+        InvoiceProceedDate: "",
+        showProceed: false,
+        InvoiceStatus: "",
+        userInGroup: false,
+        employeeEmail: "",
+        itemID: null,
+        InvoiceNo: "",
+        InvoiceDate: "",
+        InvoiceTaxAmount: "",
+        ClaimNo: null,
+        DocId: "",
+        InvoiceFileID: "",
+        invoiceApprovalChecked: false,
+      },
+    ];
+  }
+
+  setInvoiceRows(updatedRows);
+
+  // Sync local fields after deletion
+  if (props.rowEdit === "Yes") {
+    setTimeout(() => {
+      syncUploadedCreditNoteRows();
+    }, 0);
+  }
+};
   const handleTextFieldChange = (
     index: number,
     field: keyof InvoiceRow,
@@ -519,48 +578,50 @@ export default function RequesterInvoiceSection({
     // NOTE: we intentionally depend only on props.rowEdit and approverStatus so this runs
     // when the approval state changes. We avoid depending on invoiceRows to prevent loops.
   }, [props.rowEdit, props.selectedRow?.approverStatus]);
-const hasCalledLocalFieldChangeRef = React.useRef(false);
+  const hasCalledLocalFieldChangeRef = React.useRef(false);
 
-
-
-// React.useEffect(() => {
-//   if (props.rowEdit === "Yes" && !hasCalledLocalFieldChangeRef.current) {
-//     const timeoutId = setTimeout(() => {
-//       invoiceRows.forEach((row, index) => {
-//         if (row.CreditNoteStatus === "Uploaded") {
-//           // Call handleLocalFieldChange for each row with CreditNoteStatus "Uploaded"
-//           handleLocalFieldChange(index, "InvoiceAmount", row.InvoiceAmount);
-//           handleLocalFieldChange(index, "InvoiceDescription", row.InvoiceDescription);
-//           handleLocalFieldChange(index, "InvoiceDueDate", row.InvoiceDueDate);
-//           handleLocalFieldChange(index, "RemainingPoAmount", row.RemainingPoAmount);
-//         }
-//       });
-//       hasCalledLocalFieldChangeRef.current = true; // Mark as called
-//     }, 1000); 
-//     //kojioh
-//     return () => clearTimeout(timeoutId); // Cleanup timeout on unmount or re-run
-//   }
-// }, [props.rowEdit, invoiceRows]);
-const syncUploadedCreditNoteRows = () => {
-  invoiceRows.forEach((row, index) => {
-    if (row.CreditNoteStatus === "Uploaded") {
+  // React.useEffect(() => {
+  //   if (props.rowEdit === "Yes" && !hasCalledLocalFieldChangeRef.current) {
+  //     const timeoutId = setTimeout(() => {
+  //       invoiceRows.forEach((row, index) => {
+  //         if (row.CreditNoteStatus === "Uploaded") {
+  //           // Call handleLocalFieldChange for each row with CreditNoteStatus "Uploaded"
+  //           handleLocalFieldChange(index, "InvoiceAmount", row.InvoiceAmount);
+  //           handleLocalFieldChange(index, "InvoiceDescription", row.InvoiceDescription);
+  //           handleLocalFieldChange(index, "InvoiceDueDate", row.InvoiceDueDate);
+  //           handleLocalFieldChange(index, "RemainingPoAmount", row.RemainingPoAmount);
+  //         }
+  //       });
+  //       hasCalledLocalFieldChangeRef.current = true; // Mark as called
+  //     }, 1000);
+  //     //kojioh
+  //     return () => clearTimeout(timeoutId); // Cleanup timeout on unmount or re-run
+  //   }
+  // }, [props.rowEdit, invoiceRows]);
+  const syncUploadedCreditNoteRows = () => {
+    invoiceRows.forEach((row, index) => {
+      // if (row.CreditNoteStatus === "Uploaded") {
       handleLocalFieldChange(index, "InvoiceAmount", row.InvoiceAmount);
-      handleLocalFieldChange(index, "InvoiceDescription", row.InvoiceDescription);
-      handleLocalFieldChange(index, "InvoiceDueDate", row.InvoiceDueDate);
+      // handleLocalFieldChange(
+      //   index,
+      //   "InvoiceDescription",
+      //   row.InvoiceDescription
+      // );
+      // handleLocalFieldChange(index, "InvoiceDueDate", row.InvoiceDueDate);
       handleLocalFieldChange(index, "RemainingPoAmount", row.RemainingPoAmount);
+      // }
+    });
+    hasCalledLocalFieldChangeRef.current = true;
+  };
+  React.useEffect(() => {
+    if (props.rowEdit === "Yes" && !hasCalledLocalFieldChangeRef.current) {
+      const timeoutId = setTimeout(() => {
+        syncUploadedCreditNoteRows();
+      }, 1000);
+      return () => clearTimeout(timeoutId);
     }
-  });
-  hasCalledLocalFieldChangeRef.current = true;
-};
-React.useEffect(() => {
-  if (props.rowEdit === "Yes" && !hasCalledLocalFieldChangeRef.current) {
-    const timeoutId = setTimeout(() => {
-      syncUploadedCreditNoteRows();
-    }, 1000);
-    return () => clearTimeout(timeoutId);
-  }
-}, [props.rowEdit, invoiceRows]);
-return (
+  }, [props.rowEdit, invoiceRows]);
+  return (
     <div className="mt-4">
       <div
         className="d-flex justify-content-between align-items-center mb-3 sectionheader"
@@ -972,7 +1033,7 @@ return (
                         />
                       </td>
                       )} */}
-                      {invoiceRows.some((r) => r.showProceed) && (
+                    {invoiceRows.some((r) => r.showProceed) && (
                       <td className="fixedcolumn">
                         {row.showProceed ? (
                           <DatePicker
@@ -993,10 +1054,8 @@ return (
                             className="form-control"
                             disabled={isEditMode}
                           />
-                        ) : (
-                          // empty cell when this row doesn't have proceed date
-                          null
-                        )}
+                        ) : // empty cell when this row doesn't have proceed date
+                        null}
                       </td>
                     )}
                     {invoiceRows.some(
@@ -1189,7 +1248,11 @@ return (
                             row.CreditNoteStatus === ""))) && (
                         <button
                           className="btn btn-danger"
-                          onClick={() => deleteInvoiceRow(row.id)}
+                          // onClick={() => deleteInvoiceRow(row.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            deleteInvoiceRow(row.id);
+                          }}
                           disabled={invoiceRows.length === 1}
                           title="Delete Invoice Row"
                         >
