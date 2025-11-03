@@ -2654,7 +2654,10 @@ useEffect(() => {
   try {
     const params = new URLSearchParams(window.location.search);
     const reqid = params.get("reqid");
-    if (!reqid || !rows || rows.length === 0 || reqOpened) return;
+    const status = params.get("status");
+
+    // 🚫 Skip this effect entirely for finance deep links
+    if (!reqid || status || !rows || rows.length === 0 || reqOpened) return;
 
     const matchedRow = rows.find(
       (row: any) => String(row.contractNo) === String(reqid)
@@ -2676,6 +2679,102 @@ useEffect(() => {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [rows]);
+
+// 🟢 Finance Query Parameter Logic (FINAL placement)
+const [reqOpenedFinance, setReqOpenedFinance] = useState(false);
+const [queryFilteredFinanceRows, setQueryFilteredFinanceRows] = useState<any[]>([]);
+
+useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const reqid = params.get("reqid");
+    const itemid = params.get("itemid");
+    const status = params.get("status");
+
+    // stop if no reqid or already processed
+    if (!reqid || reqOpenedFinance) return;
+
+    // ✅ if status exists → it's a finance deep link (invoice/payment/credit)
+    if (status) {
+      let newFilter = "";
+      if (status.toLowerCase() === "proceeded") newFilter = "Invoice Pending";
+      else if (status.toLowerCase() === "generated") newFilter = "Payment Pending";
+      else if (status.toLowerCase().includes("credit"))
+        newFilter = "Credit Note Pending";
+
+      if (!newFilter) return;
+      setFinanceFilter(newFilter);
+
+      // Select correct dataset based on filter
+      let activeRows: any[] = [];
+      if (
+        newFilter === "Invoice Pending" ||
+        newFilter === "Payment Pending" ||
+        newFilter === "Credit Note Pending"
+      ) {
+        activeRows = invoiceRowsForCreditNote;
+      }
+
+      // Filter to match reqid + itemid (real invoice id)
+      const filtered = activeRows.filter((row: any) => {
+        const matchesReq = String(row.contractNo) === String(reqid);
+        const matchesItem =
+          !itemid || String(row.invoiceInvoiceID) === String(itemid);
+        return matchesReq && matchesItem;
+      });
+
+      if (filtered.length > 0) {
+        const invoice = filtered[0];
+
+        // ✅ show only that invoice row in the Finance DataGrid
+        setQueryFilteredFinanceRows(filtered);
+
+        // ✅ Determine if invoice is completed or pending
+        const paymentDone =
+          invoice.paymentStatus === "Yes" || invoice.PaymentStatus === "Yes";
+
+        if (paymentDone) {
+          console.log("✅ Invoice marked as Done (PaymentStatus = Yes)");
+          setStatusFilter("Done"); // switch finance table to Done section
+        } else {
+          console.log("🕒 Invoice still Pending");
+          setStatusFilter("Pending");
+        }
+
+        setReqOpenedFinance(true);
+        console.log("Finance view filtered for:", filtered);
+      }
+    } else {
+      // 🚀 No status param → open full Request Form instead
+      const matchingRow = filteredFinanceRows.find(
+        (row: any) => String(row.contractNo) === String(reqid)
+      );
+      if (matchingRow) {
+        setSelectedRowId(matchingRow.id);
+        setSelectedRow(matchingRow);
+      }
+    }
+
+    // 🧹 Clean URL after render
+    setTimeout(() => {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }, 800);
+  } catch (err) {
+    console.error("Finance reqid/status logic error:", err);
+  }
+}, [filteredFinanceRows, invoiceRowsForCreditNote]);
+
+// 🧹 Reset query filter when user changes section manually
+useEffect(() => {
+  if (reqOpenedFinance && queryFilteredFinanceRows.length > 0) {
+    // If user manually changed filter or status → reset back to normal table
+    setQueryFilteredFinanceRows([]);
+    setReqOpenedFinance(false);
+    console.log("🔄 User changed filter/status → reverted to default table view");
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [financeFilter, statusFilter]);
 
 
   return (
@@ -2943,13 +3042,23 @@ useEffect(() => {
           <Box sx={{ height: "65vh", width: "100%" }}>
             <DataGrid
               rows={
-                financeFilter === "Credit Note Pending"
-                  ? creditNotePendingRows
-                  : filterRowsBySearch(
-                      isGeneralUser ? filteredRows : filteredFinanceRows,
+                queryFilteredFinanceRows.length > 0
+                  ? queryFilteredFinanceRows // ✅ show query-filtered rows if loaded from ?reqid
+                  : financeFilter === "Credit Note Pending"
+                    ? (filteredFinanceRows.length > 0
+                      ? filteredFinanceRows
+                      : creditNotePendingRows)
+                    : filterRowsBySearch(
+                      isGeneralUser
+                        ? filteredRows
+                        : filteredFinanceRows.length > 0
+                          ? filteredFinanceRows
+                          : filteredFinanceRows, // fallback to normal dataset for that section
                       searchText
                     )
               }
+
+
               columns={
                 financeFilter === "Credit Note Pending"
                   ? creditNotePendingColumns
