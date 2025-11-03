@@ -2648,6 +2648,36 @@ const Dashboard = (props: ICmsRebuildProps) => {
       )
     : 0;
 
+    const [reqOpened, setReqOpened] = useState(false);
+
+useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const reqid = params.get("reqid");
+    if (!reqid || !rows || rows.length === 0 || reqOpened) return;
+
+    const matchedRow = rows.find(
+      (row: any) => String(row.contractNo) === String(reqid)
+    );
+
+    if (matchedRow) {
+      console.log("Opening CMS request via reqid:", matchedRow);
+      handleShoworm(matchedRow.id, matchedRow);
+      setReqOpened(true); // ✅ mark as opened so it won’t reopen on refresh
+
+      // ✅ remove ?reqid=... from the URL but keep the rest of the path
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    } else {
+      console.warn("No matching request found for reqid:", reqid);
+    }
+  } catch (err) {
+    console.error("Error handling reqid:", err);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [rows]);
+
+
   return (
     <Box sx={{ minHeight: "100vh" }}>
       {isLoading && <LoaderOverlay />}
