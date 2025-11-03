@@ -78,21 +78,22 @@ import Spinner from "react-bootstrap/Spinner";
 
 // MilestoneBar: displays a horizontal chevron-style milestone strip
 // MilestoneBar: displays a horizontal chevron-style milestone strip
+
+// ...existing code...
 const MilestoneBar: React.FC<{
   status?: string;
-  isCreditNoteUploaded?: string;
-}> = ({ status, isCreditNoteUploaded }) => {
+  creditNoteLabel?: string;
+}> = ({ status, creditNoteLabel }) => {
   const stages = ["Pending From Approver", "Hold", "Reminder", "Approved"];
 
-  // Only add "Credit Note Pending" if isCreditNoteUploaded === "No"
-  const hasCreditNotePending = isCreditNoteUploaded === "No";
-  if (hasCreditNotePending) {
-    stages.push("Credit Note Pending");
+  // Append credit-note stage when a label is provided (e.g. "Credit Note Pending" / "Credit Note Uploaded")
+  if (creditNoteLabel) {
+    stages.push(creditNoteLabel);
   }
 
-  // Determine current stage
-  const currentIndex = hasCreditNotePending
-    ? stages.indexOf("Credit Note Pending")
+  // Determine current stage (prefer creditNoteLabel if present)
+  const currentIndex = creditNoteLabel
+    ? stages.indexOf(creditNoteLabel)
     : stages.indexOf(status || "");
 
   return (
@@ -152,6 +153,28 @@ const MilestoneBar: React.FC<{
     </div>
   );
 };
+// ...existing code...
+
+// Helper: compute credit note label from selectedRow
+function getCreditNoteLabel(row: any): string | undefined {
+  if (!row) return undefined;
+  // Only consider when IsCreditNoteUploaded flag indicates pending/upload flow
+  if (row.isCreditNoteUploaded !== "No") return undefined;
+
+  const inv = Array.isArray(row.invoiceDetails) ? row.invoiceDetails : [];
+
+  const hasUploaded = inv.some(
+    (i: any) => String(i?.CreditNoteStatus || "") === "Uploaded"
+  );
+  const hasPending = inv.some(
+    (i: any) => String(i?.CreditNoteStatus || "") === "Pending"
+  );
+
+  if (hasUploaded) return "Credit Note Uploaded";
+  if (hasPending) return "Credit Note Pending";
+  // default to pending when flag is No but no details present
+  return "Credit Note Pending";
+}
 
 const RequestForm = (props: ICmsRebuildProps) => {
   sp.setup({ spfxContext: { pageContext: props.context.pageContext } });
@@ -306,7 +329,7 @@ const RequestForm = (props: ICmsRebuildProps) => {
   const [showOperationalEdits, setShowOperationalEdits] = useState(false);
   const [showCurrentOperational, setShowCurrentOperational] = useState(true);
   const [showOldOperational, setShowOldOperational] = useState(false);
-
+  const todayDate = new Date().toISOString().split("T")[0];
   // function formatDateForDateInput(isoDate: string | null | undefined): string {
   //   if (!isoDate) return "";
   //   const date = new Date(isoDate);
@@ -1062,6 +1085,25 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
           return false;
         }
       }
+      // invoiceRows.forEach((row, index) => {
+      //   if (!row.InvoiceDescription.trim())
+      //     newErrors[`InvoiceDescription_${index}`] =
+      //       "Invoice Description is required.";
+      //   if (!row.InvoiceAmount.trim())
+      //     newErrors[`InvoiceAmount_${index}`] = "Invoice Amount is required.";
+      //   if (row.InvoiceAmount === "0")
+      //     newErrors[`InvoiceAmount_${index}`] =
+      //       "Invoice Amount can not be zero.";
+      //   if (!row.InvoiceDueDate.trim())
+      //     newErrors[`InvoiceDueDate_${index}`] =
+      //       "Invoice Due Date is required.";
+      //   totalInvoiceAmount += Number(row.InvoiceAmount) || 0;
+      // });
+
+      // if (totalInvoiceAmount !== Number(formData.poAmount.trim())) {
+      //   newErrors.invoiceTotal = `Total Invoice Amount (${totalInvoiceAmount}) must equal PO Amount (${formData.poAmount}).`;
+      // }
+
       invoiceRows.forEach((row, index) => {
         if (!row.InvoiceDescription.trim())
           newErrors[`InvoiceDescription_${index}`] =
@@ -1077,9 +1119,16 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
         totalInvoiceAmount += Number(row.InvoiceAmount) || 0;
       });
 
-      if (totalInvoiceAmount !== Number(formData.poAmount.trim())) {
-        newErrors.invoiceTotal = `Total Invoice Amount (${totalInvoiceAmount}) must equal PO Amount (${formData.poAmount}).`;
-        // newErrors.invoiceTotal = `Total Invoice Amount (${Math.round(totalInvoiceAmount)}) must equal PO Amount (${formData.poAmount}) must equal PO Amount (${formData.poAmount}).`;
+      const round2 = (v: number) =>
+        Math.round((Number(v) + Number.EPSILON) * 100) / 100;
+
+      const roundedTotalInvoice = round2(totalInvoiceAmount);
+      const roundedPoAmount = round2(Number(formData.poAmount.trim()) || 0);
+
+      if (roundedTotalInvoice.toFixed(2) !== roundedPoAmount.toFixed(2)) {
+        newErrors.invoiceTotal = `Total Invoice Amount (${roundedTotalInvoice.toFixed(
+          2
+        )}) must equal PO Amount (${roundedPoAmount.toFixed(2)}).`;
       }
     }
 
@@ -1360,129 +1409,6 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
       }
     }
   };
-
-  /* const handleInvoiceChange = (
-    index: number,
-    field: string,
-    value: string | number
-  ) => {
-    setInvoiceRows((prevRows) => {
-      let updatedRows = [...prevRows];
-      updatedRows[index] = { ...updatedRows[index], [field]: value };
-
-      // Update RemainingPoAmount dynamically
-      if (field === "InvoiceAmount") {
-        const poAmt = parseFloat(formData.poAmount) || 0;
-
-        // Recalculate RemainingPoAmount for every row
-        let runningRemaining = poAmt;
-        updatedRows = updatedRows.map((row, idx) => {
-          const invoiceAmount = parseFloat(row.InvoiceAmount) || 0;
-
-          // Update RemainingPoAmount for the current row
-          const updatedRow = {
-            ...row,
-            RemainingPoAmount: runningRemaining.toFixed(2),
-          };
-
-          // Deduct the current row's InvoiceAmount from runningRemaining
-          runningRemaining -= invoiceAmount;
-
-          return updatedRow;
-        });
-
-        // Auto-add/remove rows based on remaining PO amount
-        const totalInvoiceAmount = updatedRows.reduce(
-          (sum, r) => sum + (Number(r.InvoiceAmount) || 0),
-          0
-        );
-        const remainingAfter = +(poAmt - totalInvoiceAmount).toFixed(2);
-        const lastRow = updatedRows[updatedRows.length - 1];
-        const lastRowHasValue =
-          lastRow &&
-          String(lastRow.InvoiceAmount).trim() !== "" &&
-          Number(lastRow.InvoiceAmount) !== 0;
-
-        if (poAmt > 0 && remainingAfter > 0 && lastRowHasValue) {
-          // Append new blank row for continued entry
-          const maxId =
-            updatedRows.length > 0
-              ? Math.max(...updatedRows.map((r) => r.id))
-              : 0;
-          updatedRows.push({
-            id: maxId + 1,
-            InvoiceDescription: "",
-            RemainingPoAmount: remainingAfter.toFixed(2),
-            InvoiceAmount: "",
-            InvoiceDueDate: "",
-            InvoiceProceedDate: "",
-            InvoiceComment: "",
-            showProceed: false,
-            InvoiceStatus: "",
-            userInGroup: false,
-            employeeEmail: "",
-            itemID: null as number | null,
-            InvoiceNo: "",
-            InvoiceDate: "",
-            InvoiceTaxAmount: "",
-            ClaimNo: null,
-            PrevInvoiceStatus: "",
-            RequestID: "",
-            DocId: "",
-            PendingAmount: "",
-            InvoiceFileID: "",
-            invoiceApprovalChecked: false, // Initialize here
-          });
-        }
-
-        if (poAmt > 0 && remainingAfter === 0) {
-          // Remove trailing empty rows (those after the last filled InvoiceAmount)
-          let lastFilledIndex = -1;
-          for (let i = updatedRows.length - 1; i >= 0; i--) {
-            const amt = String(updatedRows[i].InvoiceAmount).trim();
-            if (amt !== "" && Number(updatedRows[i].InvoiceAmount) !== 0) {
-              lastFilledIndex = i;
-              break;
-            }
-          }
-          if (lastFilledIndex === -1) {
-            // Nothing filled; keep single empty row and show full PO amount as remaining
-            updatedRows = [
-              {
-                id: updatedRows[0]?.id || 1,
-                InvoiceDescription: "",
-                RemainingPoAmount: poAmt.toFixed(2),
-                InvoiceAmount: "",
-                InvoiceDueDate: "",
-                InvoiceProceedDate: "",
-                InvoiceComment: "",
-                showProceed: false,
-                InvoiceStatus: "",
-                userInGroup: false,
-                employeeEmail: "",
-                itemID: null as number | null,
-                InvoiceNo: "",
-                InvoiceDate: "",
-                InvoiceTaxAmount: "",
-                ClaimNo: null,
-                PrevInvoiceStatus: "",
-                RequestID: "",
-                DocId: "",
-                PendingAmount: "",
-                InvoiceFileID: "",
-                invoiceApprovalChecked: false, // Initialize here
-              },
-            ];
-          } else {
-            // Keep rows up to last filled; their RemainingPoAmount values were already calculated above
-            updatedRows = updatedRows.slice(0, lastFilledIndex + 1);
-          }
-        }
-      }
-
-      return updatedRows;
-    });
-  };*/
 
   const handleInvoiceChange = (
     index: number,
@@ -3830,6 +3756,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
         Status: "Pending Approval",
         InvoiceID: selectedInvoiceIDs.join(", "),
         ContractID: formData.requestId || "",
+        ReminderDate: todayDate,
       };
 
       await saveDataToSharePoint(
@@ -3878,7 +3805,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
       setReason("");
       setApprovalChecks({ client: false, po: false, invoice: false });
       setIsPopupOpen(false);
-       showSnackbar(
+      showSnackbar(
         "Your request to edit has been sent to the Project Manager. Please be patient until it is approved.",
         "success"
       );
@@ -4108,39 +4035,73 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
 
       // ========== PO SECTION ==========
       if (selectedSections.includes("po")) {
-        if (!formData.poNo.trim()) {
-          showSnackbar("PO No is required.", "error");
+        if (
+          formData.poNo &&
+          String(formData.poNo).trim() !== "" &&
+          !formData.poDate?.trim()
+        ) {
+          showSnackbar("PO Date is required when PO No is provided.", "error");
+          return;
+        }
+        if (
+          formData.poDate &&
+          String(formData.poDate).trim() !== "" &&
+          !formData.poNo?.trim()
+        ) {
+          showSnackbar("PO No is required when PO Date is provided.", "error");
           return;
         }
 
-        const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
-          formData.customerName
-        )}' and PoNo eq '${encodeURIComponent(formData.poNo)}' and ID ne ${
-          props.selectedRow.id
-        }`;
-        const poNoData = await getSharePointData(
-          { context },
-          MainList,
-          poNoFilterQuery
-        );
+        if (formData.poNo && formData.poNo !== "") {
+          const poNoFilterQuery = `$select=PoNo,CompanyName&$filter=CustomerName eq '${encodeURIComponent(
+            formData.customerName
+          )}' and PoNo eq '${encodeURIComponent(formData.poNo)}' and ID ne ${
+            props.selectedRow.id
+          }`;
+          const poNoData = await getSharePointData(
+            { context },
+            MainList,
+            poNoFilterQuery
+          );
 
-        if (poNoData && poNoData.length > 0) {
-          showSnackbar(
-            "A record with this PO No already exists for the selected Customer Name.",
-            "error"
-          );
-          return;
+          if (poNoData && poNoData.length > 0) {
+            showSnackbar(
+              "A record with this PO No already exists for the selected Customer Name.",
+              "error"
+            );
+            return;
+          }
         }
-        if (!formData.poDate.trim()) {
-          showSnackbar("PO Date is required.", "error");
-          return;
-        }
-        if (!formData.poAmount || Number(formData.poAmount) <= 0) {
-          showSnackbar(
-            "PO Amount is required and must be greater than 0.",
-            "error"
-          );
-          return;
+        // if (!formData.poDate.trim()) {
+        //   showSnackbar("PO Date is required.", "error");
+        //   return;
+        // }
+
+        if (formData.productServiceType?.toLowerCase() !== "azure") {
+          if (!formData.poAmount || Number(formData.poAmount) <= 0) {
+            showSnackbar(
+              "PO Amount is required and must be greater than 0.",
+              "error"
+            );
+            return;
+          }
+          const poAmt = Number(formData.poAmount) || 0;
+
+          const totalInvoiceAmount = invoiceRows.reduce((sum, r) => {
+            if (r.InvoiceStatus === "Credit Note Uploaded") return sum;
+            return sum + (Number(r.InvoiceAmount) || 0);
+          }, 0);
+
+          const EPS = 0.01;
+          if (Math.abs(totalInvoiceAmount - poAmt) > EPS) {
+            showSnackbar(
+              `Total of invoice amounts (${totalInvoiceAmount.toFixed(
+                2
+              )}) must equal PO Amount (${poAmt.toFixed(2)}).`,
+              "error"
+            );
+            return;
+          }
         }
 
         Object.assign(finalMainListData, {
@@ -4159,11 +4120,20 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
       if (selectedSections.includes("invoice")) {
         const poAmt = Number(formData.poAmount) || 0;
 
+        if (poAmt < 0) {
+        showSnackbar("PO Amount cannot be negative.", "error");
+        return;
+    }
+
         const totalInvoiceAmount = invoiceRows.reduce((sum, r) => {
           if (r.InvoiceStatus === "Credit Note Uploaded") return sum;
           return sum + (Number(r.InvoiceAmount) || 0);
         }, 0);
 
+        if (totalInvoiceAmount < 0) {
+        showSnackbar("Total Invoice Amount cannot be negative.", "error");
+        return;
+    }
         const EPS = 0.01;
         if (Math.abs(totalInvoiceAmount - poAmt) > EPS) {
           showSnackbar(
@@ -4186,10 +4156,17 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
           ) {
             showSnackbar(
               "One or more invoice rows have missing required fields.",
-              "warning"
+              "error"
             );
             return;
           }
+
+           const invoiceAmount = Number(row.InvoiceAmount);
+        if (invoiceAmount < 0) {
+            showSnackbar("Invoice Amount cannot be negative.", "error");
+            return;
+        }
+
 
           const invoiceData: any = {
             Comments: removeWhiteSpace(row.InvoiceDescription),
@@ -4226,6 +4203,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
             row.CreditNoteStatus === "Uploaded"
           ) {
             invoiceData.CreditNoteStatus = "Completed";
+            // invoiceData.PaymentStatus = "No";
             isCreditNoteUploaded = true;
           } else if (
             row.PrevInvoiceStatus === "Generated" &&
@@ -4268,6 +4246,35 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
         if (isCreditNoteUploaded) {
           finalMainListData.IsCreditNoteUploaded = "Yes";
         }
+      }
+
+      const requestId = props.selectedRow.id;
+      const filterQuery = `$filter=RequestID eq ${requestId}&$orderby=ID desc&$top=1`;
+
+      try {
+        const operationalData = await getSharePointData(
+          props,
+          OperationalEditRequest,
+          filterQuery
+        );
+        console.log("Operational Data:", operationalData);
+
+        // Update the CreditNoteUploaded field based on isCreditNoteGenerated
+        const updateData = {
+          CreditNoteUploaded: finalMainListData.IsCreditNoteUploaded,
+        };
+
+        if (operationalData && operationalData.length > 0) {
+          const operationalId = operationalData[0].Id;
+          await updateDataToSharePoint(
+            OperationalEditRequest,
+            updateData,
+            siteUrl,
+            operationalId
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching operational data:", error);
       }
 
       // ✅ Update once at the end
@@ -4326,7 +4333,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
             if (op?.Id) {
               await updateDataToSharePoint(
                 OperationalEditRequest,
-                { Status: "Reminder" },
+                { Status: "Reminder", ReminderDate: todayDate },
                 siteUrl,
                 op.Id
               );
@@ -4433,24 +4440,29 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                 />
               </div>
             ))} */}
-          {props.rowEdit === "Yes" &&
-          ["Pending From Approver", "Approved", "Hold", "Reminder"].includes(
-            props.selectedRow?.approverStatus
-          ) ? (
-            <MilestoneBar
-              status={props.selectedRow?.approverStatus}
-              isCreditNoteUploaded={
-                props.selectedRow?.isCreditNoteUploaded === "No"
-                  ? "No"
-                  : undefined
-              }
-            />
-          ) : props.selectedRow?.isCreditNoteUploaded === "No" ? (
-            <MilestoneBar
-              status={props.selectedRow?.approverStatus}
-              isCreditNoteUploaded="No"
-            />
-          ) : null}
+          {/* Conditionally render milestone and note message */}
+          {(() => {
+            const shouldShowMilestone =
+              (props.rowEdit === "Yes" &&
+                [
+                  "Pending From Approver",
+                  "Approved",
+                  "Hold",
+                  "Reminder",
+                ].includes(props.selectedRow?.approverStatus)) ||
+              props.selectedRow?.isCreditNoteUploaded === "No";
+
+            if (!shouldShowMilestone) return null;
+
+            const creditNoteLabel = getCreditNoteLabel(props.selectedRow);
+
+            return (
+              <MilestoneBar
+                status={props.selectedRow?.approverStatus}
+                creditNoteLabel={creditNoteLabel}
+              />
+            );
+          })()}
         </div>
         <form onSubmit={handleSubmit}>
           <div className="row">
@@ -6505,18 +6517,44 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                 aria-controls="operationalEditsCollapse"
               >
                 <h5 className="fw-bold headingColor">Edit Requests History</h5>
+
                 <button
                   type="button"
                   className="btn btn-link"
-                  onClick={() => setShowOperationalEdits((prev) => !prev)}
+                  onClick={() => {
+                    setShowOperationalEdits((prev) => !prev);
+                    if (!showOperationalEdits) {
+                      fetchOperationalEdits(props.selectedRow?.id);
+                    }
+                  }}
                   aria-expanded={showOperationalEdits}
                   aria-controls="operationalEditsCollapse"
                   style={{ textDecoration: "none", color: "#ffffff" }}
                 >
                   {showOperationalEdits ? (
-                    <FontAwesomeIcon icon={faAngleUp} />
+                    <FontAwesomeIcon
+                      icon={faAngleUp}
+                      onClick={() => {
+                        setShowOperationalEdits((prev) => !prev);
+                        if (!showOperationalEdits) {
+                          fetchOperationalEdits(props.selectedRow?.id);
+                        }
+                      }}
+                      aria-expanded={showOperationalEdits}
+                      aria-controls="operationalEditsCollapse"
+                    />
                   ) : (
-                    <FontAwesomeIcon icon={faAngleDown} />
+                    <FontAwesomeIcon
+                      icon={faAngleDown}
+                      onClick={() => {
+                        setShowOperationalEdits((prev) => !prev);
+                        if (!showOperationalEdits) {
+                          fetchOperationalEdits(props.selectedRow?.id);
+                        }
+                      }}
+                      aria-expanded={showOperationalEdits}
+                      aria-controls="operationalEditsCollapse"
+                    />
                   )}
                 </button>
               </div>
@@ -6617,6 +6655,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                   <th>Reason</th>
                                   <th>Selected Sections</th>
                                   <th style={{ width: 180 }}>User</th>
+                                  <th style={{ width: 150 }}>Created Date</th>
                                   <th style={{ width: 120 }}>Status</th>
                                   {showActions && (
                                     <th
@@ -6671,13 +6710,20 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                     </td>
                                     <td>{row.UserName || "-"}</td>
                                     <td>
+                                      {row.Created
+                                        ? new Date(
+                                            row.Created
+                                          ).toLocaleDateString("en-GB")
+                                        : "-"}
+                                    </td>
+                                    <td>
                                       <span
                                         className={`badge ${
                                           row.Status === "Pending Approval"
                                             ? "bg-info"
                                             : row.Status === "Approved"
                                             ? "bg-success"
-                                            : row.Status === "Rejected"
+                                            : row.Status === "Reject"
                                             ? "bg-danger"
                                             : "bg-secondary"
                                         }`}
@@ -6702,7 +6748,10 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                               <>
                                                 <button
                                                   className="btn btn-success"
-                                                  onClick={async () => {
+                                                  onClick={async (
+                                                    e: React.MouseEvent<HTMLButtonElement>
+                                                  ) => {
+                                                    e.preventDefault();
                                                     if (!row.Id) return;
                                                     try {
                                                       setIsLoading(true);
@@ -6714,6 +6763,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                                       > = {
                                                         RunWF: "Yes",
                                                         Status: "Approved",
+                                                        ReminderDate: todayDate,
                                                       };
                                                       let shouldUpdateMainList =
                                                         false;
@@ -6954,14 +7004,21 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
 
                                                 <button
                                                   className="btn btn-warning"
-                                                  onClick={async () => {
+                                                  onClick={async (
+                                                    e: React.MouseEvent<HTMLButtonElement>
+                                                  ) => {
+                                                    e.preventDefault();
                                                     if (!row.Id) return;
                                                     try {
                                                       setIsLoading(true);
                                                       // set OperationalEditRequest -> Hold
                                                       await updateDataToSharePoint(
                                                         OperationalEditRequest,
-                                                        { Status: "Hold" },
+                                                        {
+                                                          Status: "Hold",
+                                                          ReminderDate:
+                                                            todayDate,
+                                                        },
                                                         siteUrl,
                                                         row.Id
                                                       );
@@ -7066,7 +7123,10 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
 
                                                 <button
                                                   className="btn btn-danger"
-                                                  onClick={async () => {
+                                                  onClick={async (
+                                                    e: React.MouseEvent<HTMLButtonElement>
+                                                  ) => {
+                                                    e.preventDefault();
                                                     if (!row.Id) return;
                                                     if (
                                                       !window.confirm(
@@ -7080,7 +7140,12 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                                       // Mark OperationalEditRequest as rejected
                                                       await updateDataToSharePoint(
                                                         OperationalEditRequest,
-                                                        { Status: "Rejected" },
+                                                        {
+                                                          Status: "Reject",
+                                                          RunWF : "Yes",
+                                                          ReminderDate:
+                                                            todayDate,
+                                                        },
                                                         siteUrl,
                                                         row.Id
                                                       );
@@ -7115,13 +7180,13 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                                       if (
                                                         props.selectedRow?.id
                                                       ) {
+                                                        const updatedData = {
+                                                            ApproverStatus: "Reject",
+                                                            RunWF: "Yes",
+                                                          };
                                                         await updateDataToSharePoint(
                                                           MainList,
-                                                          {
-                                                            ApproverStatus:
-                                                              "Reject",
-                                                            RunWF: "No",
-                                                          },
+                                                          updatedData,
                                                           siteUrl,
                                                           props.selectedRow.id
                                                         );
@@ -7164,7 +7229,10 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                                               row.Status === "Reminder") && (
                                               <button
                                                 className="btn btn-warning"
-                                                onClick={(e) => {
+                                                onClick={async (
+                                                  e: React.MouseEvent<HTMLButtonElement>
+                                                ) => {
+                                                  e.preventDefault();
                                                   if (!props.selectedRow?.id)
                                                     return;
                                                   handleReminder(
@@ -7381,9 +7449,18 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                         </div>
                       </div>
                     </Modal.Body>
-                    <Modal.Footer>
+                    <Modal.Footer className="d-flex justify-content-between">
+                      <Button
+                        variant="secondary"
+                        onClick={handleClosePopup}
+                        disabled={isSubmitting}
+                      >
+                        Close
+                      </Button>
+
                       <Button
                         variant="success"
+                        disabled={isSubmitting}
                         onClick={(e) => {
                           if (selectedId !== null) {
                             handleSubmitEditRequestApproval(e, selectedId);
@@ -7396,10 +7473,7 @@ const handleExit = async (event?: React.MouseEvent<HTMLButtonElement>) => {
                           }
                         }}
                       >
-                        <FontAwesomeIcon icon={faPaperPlane} /> Submit
-                      </Button>
-                      <Button variant="danger" onClick={handleClosePopup}>
-                        Close
+                        Submit
                       </Button>
                     </Modal.Footer>
                     <Snackbar

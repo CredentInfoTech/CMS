@@ -127,6 +127,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
   // console.log(CMSInvoiceDocuments);
   const PaymentHistoryListName = "CMSPaymentHistory";
   const CreditNote = "CMSCreditNote"; // SharePoint Document Library for Credit Notes
+  const OperationalEditRequest = "OperationalCMSEditRequest"; // SharePoint Document Library for Operational CMS Edit Requests
   // console.log(PaymentHistoryListName);
   // const ContractDocumentLibaray = "ContractDocument";
   // console.log(ContractDocumentLibaray);
@@ -312,12 +313,28 @@ const Dashboard = (props: ICmsRebuildProps) => {
     },
     { field: "poNo", headerName: "Po No.", minWidth: 120, flex: 1 },
     { field: "poAmount", headerName: "Po Amount", minWidth: 130, flex: 1 },
-    {
-      field: "upcomingInvoice",
-      headerName: "UpComing Invoice Date",
-      minWidth: 150,
-      flex: 1,
-    },
+    // {
+    //   field: "upcomingInvoice",
+    //   headerName: "UpComing Invoice Date",
+    //   minWidth: 150,
+    //   flex: 1,
+    // },
+ {
+  field: "upcomingInvoice",
+  headerName: "UpComing Invoice Date",
+  minWidth: 150,
+  flex: 1,
+  sortComparator: (v1, v2) => {
+    const date1 = moment(v1, "DD/MM/YYYY", true); 
+    const date2 = moment(v2, "DD/MM/YYYY", true); 
+
+    if (!date1.isValid() && !date2.isValid()) return 0; 
+    if (!date1.isValid()) return 1; 
+    if (!date2.isValid()) return -1;
+    return date1.diff(date2); 
+    
+  },
+},
     { field: "poDate", headerName: "Po Date", minWidth: 120, flex: 1 },
     { field: "workTitle", headerName: "Work Title", minWidth: 150, flex: 1 },
 
@@ -593,7 +610,6 @@ const Dashboard = (props: ICmsRebuildProps) => {
       if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
         isInvoicePaymentReceived = "Yes";
       }
-
       const updatedata = {
         PaymentDate: row.paymentDate,
         CMSRequestItemID: row.invoiceInvoiceID,
@@ -632,8 +648,11 @@ const Dashboard = (props: ICmsRebuildProps) => {
         );
 
         if (InvoicePendingAmount == 0 || InvoicePendingAmount < 0) {
+          // const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
+          // ...existing code...
           // const filterQuery = `$select=*&$filter=TotalPendingAmount ge 1 and RequestID eq ${CMSRequestItemID}`;
-          const filterQuery = `$select=*&$filter=(TotalPendingAmount ge 1 or TotalPendingAmount eq null) and RequestID eq ${CMSRequestItemID}`;
+          const filterQuery = `$select=*&$filter=(CreditNoteStatus ne 'Completed' and TotalPendingAmount ge 1 or TotalPendingAmount eq null ) and RequestID eq ${CMSRequestItemID} `;
+
           const data = await getSharePointData(
             props,
             InvoicelistName,
@@ -695,7 +714,7 @@ const Dashboard = (props: ICmsRebuildProps) => {
         ContractID: row.contractNo,
         RequestID: row.invoiceInvoiceRequestID,
         InvoiceID: row.invoiceInvoiceID,
-        Comments: row.description.trim().replace(/\s+/g, " ")
+        Comments: row.description.trim().replace(/\s+/g, " "),
       };
 
       const uploadedFileResult = await uploadFileWithMetadata(
@@ -736,6 +755,34 @@ const Dashboard = (props: ICmsRebuildProps) => {
         row.invoiceInvoiceRequestID
       );
 
+      const requestId = row.invoiceInvoiceRequestID;
+      const filterQuery = `$filter=RequestID eq ${requestId}&$orderby=ID desc&$top=1`;
+
+      try {
+        const operationalData = await getSharePointData(
+          props,
+          OperationalEditRequest,
+          filterQuery
+        );
+        console.log("Operational Data:", operationalData);
+
+        // Update the CreditNoteUploaded field based on isCreditNoteGenerated
+        const updateData = {
+          CreditNoteUploaded: "No",
+        };
+
+        if (operationalData && operationalData.length > 0) {
+          const operationalId = operationalData[0].Id;
+          await updateDataToSharePoint(
+            OperationalEditRequest,
+            updateData,
+            siteUrl,
+            operationalId
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching operational data:", error);
+      }
       alert("Credit Note uploaded successfully.");
       if (props.refreshCmsDetails) {
         await props.refreshCmsDetails();
@@ -1388,6 +1435,9 @@ const Dashboard = (props: ICmsRebuildProps) => {
               <Button
                 variant="contained"
                 color="primary"
+                sx={{
+                  color: "#fff !important",
+                }}
                 onClick={() => handleUploadCreditNote(params.row)}
               >
                 Upload Credit Note
@@ -1642,18 +1692,21 @@ const Dashboard = (props: ICmsRebuildProps) => {
 
   // Filter rows for "Credit Note Pending"
   const creditNotePendingRows: RowData[] =
-  financeFilter === "Credit Note Pending"
-    ? statusFilter === "Pending"
-      ? invoiceRowsForCreditNote.filter(
-          (row) => (row.prevInvoiceStatus === "Generated" || row.invoiceStatus ==="Pending Approval") && row.creditNoteStatus === "Pending"
-
-        )
-      : invoiceRowsForCreditNote.filter(
-          (row) =>
-            row.invoiceStatus === "Credit Note Uploaded" &&
-            (row.creditNoteStatus === "Uploaded" || row.creditNoteStatus === "Completed")
-        )
-    : [];
+    financeFilter === "Credit Note Pending"
+      ? statusFilter === "Pending"
+        ? invoiceRowsForCreditNote.filter(
+            (row) =>
+              (row.prevInvoiceStatus === "Generated" ||
+                row.invoiceStatus === "Pending Approval") &&
+              row.creditNoteStatus === "Pending"
+          )
+        : invoiceRowsForCreditNote.filter(
+            (row) =>
+              row.invoiceStatus === "Credit Note Uploaded" &&
+              (row.creditNoteStatus === "Uploaded" ||
+                row.creditNoteStatus === "Completed")
+          )
+      : [];
 
   const checkInvoiceNo = async (invoiceNo: string) => {
     const filterQuery = `$filter=InvoicNo eq '${invoiceNo}'&$orderby=Id desc&$Top=1`;
@@ -2955,21 +3008,21 @@ const Dashboard = (props: ICmsRebuildProps) => {
         //   props={props}
         // />
         <RequestForm
-  rowEdit={`Yes`}
-  rowId={selectedRowId}
-  selectedRow={selectedRow}
-  description={props.description}
-  context={props.context}
-  siteUrl={siteUrl}
-  userGroups={props.userGroups}
-  cmsDetails={props.cmsDetails}
-  refreshCmsDetails={props.refreshCmsDetails}
-  onExit={() => {
-    console.log("Exiting RequestForm from Dashboard");
-    setSelectedRowId(null);
-    setSelectedRow(null);
-  }}
-/>
+          rowEdit={`Yes`}
+          rowId={selectedRowId}
+          selectedRow={selectedRow}
+          description={props.description}
+          context={props.context}
+          siteUrl={siteUrl}
+          userGroups={props.userGroups}
+          cmsDetails={props.cmsDetails}
+          refreshCmsDetails={props.refreshCmsDetails}
+          onExit={() => {
+            console.log("Exiting RequestForm from Dashboard");
+            setSelectedRowId(null);
+            setSelectedRow(null);
+          }}
+        />
       )}
 
       {/* <FileUpload description={props.description} context={props.context} siteUrl={props.siteUrl} /> */}
